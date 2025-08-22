@@ -112,3 +112,35 @@ class Message {
         'replyToMessageId': replyToMessageId,
       };
 }
+
+class Chat {
+  final String id;
+  final String title;        // نام مخاطب یا گروه
+  final String subtitle;     // آخرین پیام
+  final DateTime updatedAt;  // آخرین آپدیت
+  final int unread;          // تعداد پیام‌های ناخوانده
+
+  const Chat({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.updatedAt,
+    required this.unread,
+  });
+
+  Chat copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    DateTime? updatedAt,
+    int? unread,
+  }) {
+    return Chat(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      updatedAt: updatedAt ?? this.updatedAt,
+      unread: unread ?? this.unread,
+    );
+  }
+}
