@@ -1,0 +1,7 @@
+{
+  "targetCtrLow": 0.12,
+  "targetCtrHigh": 0.16,
+  "targetDivLow": 0.55,
+  "targetDivHigh": 0.7,
+  "shimmerEnabled": true
+}

@@ -1,0 +1,362 @@
+[
+  {
+    "id": "p_1_0",
+    "title": "Sample Product p_1_0",
+    "price": 209.91,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_0/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_1_1",
+    "title": "Sample Product p_1_1",
+    "price": 108.57,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_1/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_1_2",
+    "title": "Sample Product p_1_2",
+    "price": 73.9,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_2/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_1_3",
+    "title": "Sample Product p_1_3",
+    "price": 134.74,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_3/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_1_4",
+    "title": "Sample Product p_1_4",
+    "price": 97.18,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_4/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  },
+  {
+    "id": "p_1_5",
+    "title": "Sample Product p_1_5",
+    "price": 178.84,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_5/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_1_6",
+    "title": "Sample Product p_1_6",
+    "price": 104.67,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_6/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_1_7",
+    "title": "Sample Product p_1_7",
+    "price": 89.46,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_7/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_1_8",
+    "title": "Sample Product p_1_8",
+    "price": 190.64,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_8/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_1_9",
+    "title": "Sample Product p_1_9",
+    "price": 272.65,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_9/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  },
+  {
+    "id": "p_1_10",
+    "title": "Sample Product p_1_10",
+    "price": 97.87,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_10/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_1_11",
+    "title": "Sample Product p_1_11",
+    "price": 184.91,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_11/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_1_12",
+    "title": "Sample Product p_1_12",
+    "price": 142.37,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_12/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_1_13",
+    "title": "Sample Product p_1_13",
+    "price": 139.83,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_13/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_1_14",
+    "title": "Sample Product p_1_14",
+    "price": 202.01,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_14/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  },
+  {
+    "id": "p_1_15",
+    "title": "Sample Product p_1_15",
+    "price": 112.14,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_15/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_1_16",
+    "title": "Sample Product p_1_16",
+    "price": 294.71,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_16/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_1_17",
+    "title": "Sample Product p_1_17",
+    "price": 173.45,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_17/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_1_18",
+    "title": "Sample Product p_1_18",
+    "price": 285.9,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_18/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_1_19",
+    "title": "Sample Product p_1_19",
+    "price": 176.18,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_1_19/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  },
+  {
+    "id": "p_2_0",
+    "title": "Sample Product p_2_0",
+    "price": 89.32,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_0/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_2_1",
+    "title": "Sample Product p_2_1",
+    "price": 238.76,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_1/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_2_2",
+    "title": "Sample Product p_2_2",
+    "price": 283.21,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_2/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_2_3",
+    "title": "Sample Product p_2_3",
+    "price": 132.91,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_3/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_2_4",
+    "title": "Sample Product p_2_4",
+    "price": 160.35,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_4/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  },
+  {
+    "id": "p_2_5",
+    "title": "Sample Product p_2_5",
+    "price": 91.47,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_5/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_2_6",
+    "title": "Sample Product p_2_6",
+    "price": 184.1,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_6/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_2_7",
+    "title": "Sample Product p_2_7",
+    "price": 185.61,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_7/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_2_8",
+    "title": "Sample Product p_2_8",
+    "price": 239.13,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_8/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_2_9",
+    "title": "Sample Product p_2_9",
+    "price": 137.93,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_9/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  },
+  {
+    "id": "p_2_10",
+    "title": "Sample Product p_2_10",
+    "price": 255.24,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_10/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_2_11",
+    "title": "Sample Product p_2_11",
+    "price": 71.77,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_11/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_2_12",
+    "title": "Sample Product p_2_12",
+    "price": 189.58,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_12/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_2_13",
+    "title": "Sample Product p_2_13",
+    "price": 152.48,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_13/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_2_14",
+    "title": "Sample Product p_2_14",
+    "price": 205.12,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_14/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  },
+  {
+    "id": "p_2_15",
+    "title": "Sample Product p_2_15",
+    "price": 285.93,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_15/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_1"
+  },
+  {
+    "id": "p_2_16",
+    "title": "Sample Product p_2_16",
+    "price": 77.09,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_16/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_2"
+  },
+  {
+    "id": "p_2_17",
+    "title": "Sample Product p_2_17",
+    "price": 292.77,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_17/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_3"
+  },
+  {
+    "id": "p_2_18",
+    "title": "Sample Product p_2_18",
+    "price": 264.07,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_18/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_4"
+  },
+  {
+    "id": "p_2_19",
+    "title": "Sample Product p_2_19",
+    "price": 155.32,
+    "currency": "CHF",
+    "imageUrl": "https://picsum.photos/seed/p_2_19/600/400",
+    "createdAt": "2025-08-01T12:00:00Z",
+    "sellerId": "seller_5"
+  }
+]

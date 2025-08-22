@@ -1,0 +1,67 @@
+import 'package:flutter/material.dart';
+import 'package:bazari_8656/app/i18n/i18n.dart';
+import 'package:bazari_8656/features/home/pages/home_page.dart';
+import 'package:bazari_8656/features/search/pages/search_page.dart';
+import 'package:bazari_8656/features/fun/pages/fun_page.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppLang.instance.load(); // زبان را از SharedPreferences لود می‌کند
+  runApp(const BazariApp());
+}
+
+class BazariApp extends StatelessWidget {
+  const BazariApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // تغییر زبان لحظه‌ای
+    return AnimatedBuilder(
+      animation: AppLang.instance,
+      builder: (context, _) => MaterialApp(
+        title: 'Bazari 8656',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+          useMaterial3: true,
+        ),
+        home: const _RootScaffold(),
+      ),
+    );
+  }
+}
+
+// برای سازگاری با تست‌های قدیمی
+class MyApp extends BazariApp {
+  const MyApp({super.key});
+}
+
+class _RootScaffold extends StatefulWidget {
+  const _RootScaffold({super.key});
+  @override
+  State<_RootScaffold> createState() => _RootScaffoldState();
+}
+
+class _RootScaffoldState extends State<_RootScaffold> {
+  int _index = 0;
+
+  // اگر یکی از این صفحات const نیست، const را بردار
+  final _pages = const [HomePage(), SearchPage(), FunPage()];
+
+  static const _tabs = [
+    BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+    BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+    BottomNavigationBarItem(icon: Icon(Icons.celebration), label: 'Fun'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_index],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _index,
+        items: _tabs,
+        onTap: (i) => setState(() => _index = i),
+      ),
+    );
+  }
+}

@@ -1,0 +1,11 @@
+In your lib/main.dart, ensure inside _RootScaffoldState.build you use:
+  floatingActionButton: FloatingActionButton.extended(
+    onPressed: () {
+      Navigator.push(context, MaterialPageRoute(builder: (_)=> const AddProductPage()));
+    },
+    icon: const Icon(Icons.add),
+    label: const Text('Add'),
+  ),
+  floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+And import:
+  import 'features/add_product/pages/add_product_page.dart';

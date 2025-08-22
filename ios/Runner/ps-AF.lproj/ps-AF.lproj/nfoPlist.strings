@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "د اعلان د انځورونو لپاره د کمرې اجازه ته اړتیا لرو.";
+"NSPhotoLibraryUsageDescription" = "له ګالرۍ څخه د انځورونو د ټاکلو لپاره د عکس کتابتون اجازه ته اړتیا لرو.";
+"NSPhotoLibraryAddUsageDescription" = "انځورونه ګالرۍ ته د خوندي کولو لپاره اجازه ته اړتیا لرو.";
+"NSLocationWhenInUseUsageDescription" = "ستاسو ځای د نقشې په سر ښودلو او نږدې وړاندیزونو لپاره د موقعیت اجازه ته اړتیا لرو.";

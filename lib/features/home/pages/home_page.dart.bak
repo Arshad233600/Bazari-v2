@@ -1,0 +1,437 @@
+﻿import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bazari_8656/core/services/auth_service.dart';
+import 'package:bazari_8656/features/account/pages/user_dashboard_page.dart';
+import 'package:bazari_8656/features/product/pages/add_product_manual_page.dart';
+import 'package:bazari_8656/features/product/pages/add_product_ai_page.dart'; // اگر صفحهٔ AI داری
+
+import 'package:bazari_8656/app/i18n/i18n.dart';
+import 'package:bazari_8656/data/products_repository.dart';
+import 'package:bazari_8656/data/mock_data.dart';
+import 'package:bazari_8656/features/home/widgets/product_card.dart';
+import 'package:bazari_8656/features/home/widgets/category_chip_bar.dart';
+import 'package:bazari_8656/features/product/pages/product_view_page.dart';
+import 'package:bazari_8656/features/home/widgets/home_filter_sheet.dart';
+
+import 'package:bazari_8656/common/widgets/horizontal_chips.dart';
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final _repo = ProductsRepository();
+  final _scroll = ScrollController();
+  final _searchCtl = TextEditingController();
+
+  final List<dynamic> _items = <dynamic>[];
+  bool _loading = false;
+  bool _hasMore = true;
+  int _page = 1;
+
+  String? _categoryId;
+  String _query = '';
+  double? _minPrice;
+  double? _maxPrice;
+  SortMode _sort = SortMode.newest;
+  bool _onlyAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersistedFilters();
+    _scroll.addListener(_onScroll);
+    _refresh(first: true);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _searchCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPersistedFilters() async {
+    final p = await SharedPreferences.getInstance();
+    setState(() {
+      _query = p.getString('home_query') ?? '';
+      _searchCtl.text = _query;
+      _categoryId = p.getString('home_cat');
+      _minPrice = p.getDouble('home_min_price');
+      _maxPrice = p.getDouble('home_max_price');
+      final idx = (p.getInt('home_sort') ?? 0);
+      _sort = SortMode.values[idx.clamp(0, SortMode.values.length - 1)];
+      _onlyAvailable = p.getBool('home_only_avail') ?? false;
+    });
+  }
+
+  Future<void> _persistFilters() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString('home_query', _query);
+    if (_categoryId == null) {
+      await p.remove('home_cat');
+    } else {
+      await p.setString('home_cat', _categoryId!);
+    }
+    if (_minPrice == null) {
+      await p.remove('home_min_price');
+    } else {
+      await p.setDouble('home_min_price', _minPrice!);
+    }
+    if (_maxPrice == null) {
+      await p.remove('home_max_price');
+    } else {
+      await p.setDouble('home_max_price', _maxPrice!);
+    }
+    await p.setInt('home_sort', _sort.index);
+    await p.setBool('home_only_avail', _onlyAvailable);
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 300 && !_loading && _hasMore) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _refresh({bool first = false}) async {
+    setState(() {
+      _loading = true;
+      _hasMore = true;
+      _page = 1;
+      _items.clear();
+    });
+    await _persistFilters();
+    final list = await _fetch();
+    setState(() {
+      _items..clear()..addAll(list);
+      _loading = false;
+      _hasMore = list.isNotEmpty;
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _page += 1;
+    });
+    final list = await _fetch();
+    setState(() {
+      _items.addAll(list);
+      _loading = false;
+      if (list.isEmpty) _hasMore = false;
+    });
+  }
+
+  bool _isAvailable(dynamic p) {
+    try {
+      final v = (p as dynamic).available;
+      if (v is bool) return v;
+    } catch (_) {}
+    return true;
+  }
+
+  String? _cat(dynamic p) {
+    try {
+      final v = (p as dynamic).categoryId;
+      if (v is String) return v;
+    } catch (_) {}
+    return null;
+  }
+
+  double _price(dynamic p) {
+    try {
+      final v = (p as dynamic).price;
+      if (v is num) return v.toDouble();
+    } catch (_) {}
+    return 0.0;
+  }
+
+  DateTime _createdAt(dynamic p) {
+    try {
+      final v = (p as dynamic).createdAt;
+      if (v is DateTime) return v;
+    } catch (_) {}
+    return DateTime(2024);
+  }
+
+  Future<List<dynamic>> _fetch() async {
+    List<dynamic> base;
+    if (_query.trim().isNotEmpty) {
+      base = await _repo.search(_query.trim());
+    } else {
+      base = await _repo.fetchPage(page: _page, categoryId: _categoryId);
+    }
+
+    base = base.where((p) {
+      final okCat = _categoryId == null || _cat(p) == _categoryId;
+      final pr = _price(p);
+      final okMin = _minPrice == null || pr >= _minPrice!;
+      final okMax = _maxPrice == null || pr <= _maxPrice!;
+      final okAvail = !_onlyAvailable || _isAvailable(p);
+      return okCat && okMin && okMax && okAvail;
+    }).toList();
+
+    switch (_sort) {
+      case SortMode.newest:
+        base.sort((a, b) => _createdAt(b).compareTo(_createdAt(a)));
+        break;
+      case SortMode.priceLow:
+        base.sort((a, b) => _price(a).compareTo(_price(b)));
+        break;
+      case SortMode.priceHigh:
+        base.sort((a, b) => _price(b).compareTo(_price(a)));
+        break;
+      case SortMode.random:
+        base.shuffle();
+        break;
+    }
+    return base;
+  }
+
+  Future<void> _openFilters() async {
+    final res = await showModalBottomSheet<HomeFilterState>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => HomeFilterSheet(
+        initial: HomeFilterState(
+          query: _query,
+          categoryId: _categoryId,
+          minPrice: _minPrice,
+          maxPrice: _maxPrice,
+          sort: _sort,
+          onlyAvailable: _onlyAvailable,
+        ),
+      ),
+    );
+    if (res != null) {
+      setState(() {
+        _query = res.query ?? '';
+        _searchCtl.text = _query;
+        _categoryId = res.categoryId;
+        _minPrice = res.minPrice;
+        _maxPrice = res.maxPrice;
+        _sort = res.sort;
+        _onlyAvailable = res.onlyAvailable;
+      });
+      await _refresh();
+    }
+  }
+
+  Future<void> _onSearchSubmit(String text) async {
+    setState(() {
+      _query = text;
+    });
+    await _refresh();
+  }
+
+  void _onCategoryTap(CategorySpec? cat) async {
+    setState(() {
+      _categoryId = cat?.id;
+    });
+    await _refresh();
+  }
+
+  // ←←← کال‌بک کمکی برای افزودن سریع آیتم جدید
+  void _prependNewItem(Map<String, dynamic> item) {
+    setState(() {
+      _items.insert(0, item);
+    });
+    _scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLang.instance.t;
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceVariant.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtl,
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: t('search'),
+                          ),
+                          onSubmitted: _onSearchSubmit,
+                        ),
+                      ),
+                      if (_searchCtl.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          tooltip: 'Clear',
+                          onPressed: () {
+                            _searchCtl.clear();
+                            _onSearchSubmit('');
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _openFilters,
+                icon: const Icon(Icons.filter_list),
+                tooltip: t('category'),
+              ),
+              IconButton(
+                onPressed: () async {
+                  final ok = await AuthService.instance.ensureSignedIn(context);
+                  if (!ok || !mounted) return;
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const UserDashboardPage()),
+                  );
+                },
+                icon: const Icon(Icons.person_outline),
+                tooltip: 'داشبورد',
+              ),
+            ],
+          ),
+        ),
+      ),
+
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          controller: _scroll,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, right: 12, left: 12),
+                child: HorizontalChips(
+                  items: const ['همه', 'تازه‌ترین', 'پرفروش', 'پیشنهادی'],
+                  onTap: (_) {},
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: CategoryChipBar(
+                onTap: _onCategoryTap,
+                selectedId: _categoryId,
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(12),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.74,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                      (c, i) {
+                    final p = _items[i];
+                    return GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => ProductViewPage(p: p)),
+                      ),
+                      child: RepaintBoundary(child: ProductCard(p: p)),
+                    );
+                  },
+                  childCount: _items.length,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _loading
+                  ? const Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Center(child: CircularProgressIndicator()),
+              )
+                  : const SizedBox.shrink(),
+            ),
+            if (!_loading && _items.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(child: Text(t('refresh'))),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
+      ),
+
+      // ✨ همین‌جا FAB قبلی شما حفظ شده ولی با کال‌بک
+      floatingActionButton: _AddProductFab(
+        onCreated: _prependNewItem,
+      ),
+    );
+  }
+}
+
+class _AddProductFab extends StatelessWidget {
+  const _AddProductFab({super.key, required this.onCreated});
+
+  final void Function(Map<String, dynamic> item) onCreated;
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.extended(
+      icon: const Icon(Icons.add),
+      label: const Text('افزودن'),
+      onPressed: () async {
+        final sel = await showModalBottomSheet<String>(
+          context: context,
+          builder: (c) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('افزودن دستی'),
+                  onTap: () => Navigator.pop(c, 'manual'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_awesome),
+                  title: const Text('افزودن با هوش مصنوعی'),
+                  onTap: () => Navigator.pop(c, 'ai'),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        if (!context.mounted) return;
+
+        if (sel == 'manual') {
+          final result = await Navigator.of(context).push<Map<String, dynamic>>(
+            MaterialPageRoute(builder: (_) => const AddProductManualPage()),
+          );
+          if (result != null) onCreated(result);
+        } else if (sel == 'ai') {
+          final aiResult = await Navigator.of(context).push<Map<String, dynamic>>(
+            MaterialPageRoute(builder: (_) => const AddProductAiPage()),
+          );
+          if (aiResult != null) onCreated(aiResult);
+        }
+      },
+    );
+  }
+}

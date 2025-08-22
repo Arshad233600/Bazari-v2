@@ -1,0 +1,311 @@
+﻿// lib/features/product/pages/add_product_manual_page.dart
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'package:bazari_8656/common/widgets/photo_picker_grid.dart';
+import 'package:bazari_8656/data/categories.dart';
+import 'package:bazari_8656/features/product/models/manual_product_draft.dart';
+
+class AddProductManualPage extends StatefulWidget {
+  final String? initialCategoryId;
+  final String? initialSubcategoryId;
+  final String? initialTitle;
+  final String? initialDescription;
+  final double? initialPrice;
+
+  /// برای سازگاری با صفحهٔ AI
+  final ManualProductDraft? initial;
+
+  const AddProductManualPage({
+    super.key,
+    this.initialCategoryId,
+    this.initialSubcategoryId,
+    this.initialTitle,
+    this.initialDescription,
+    this.initialPrice,
+    this.initial,
+  });
+
+  @override
+  State<AddProductManualPage> createState() => _AddProductManualPageState();
+}
+
+class _AddProductManualPageState extends State<AddProductManualPage> {
+  final _form = GlobalKey<FormState>();
+  final _titleCtl = TextEditingController();
+  final _priceCtl = TextEditingController();
+  final _descCtl = TextEditingController();
+
+  String? _categoryId;
+  String? _subcategoryId;
+  bool _available = true;
+  List<XFile> _photos = <XFile>[];
+
+  // ---------- Helpers (کار با هر شکل Category/Subcategory) ----------
+  String _readCatId(dynamic c) {
+    try { return (c as dynamic).id as String; } catch (_) {}
+    try { return (c as dynamic).code as String; } catch (_) {}
+    return c.toString();
+  }
+
+  String _readCatLabel(dynamic c) {
+    try { final v = (c as dynamic).label; if (v is String && v.isNotEmpty) return v; } catch (_) {}
+    try { final v = (c as dynamic).name;  if (v is String && v.isNotEmpty) return v; } catch (_) {}
+    try { final v = (c as dynamic).title; if (v is String && v.isNotEmpty) return v; } catch (_) {}
+    return 'بدون‌نام';
+  }
+
+  List<dynamic> _readCatSubs(dynamic c) {
+    try { final v = (c as dynamic).subs; if (v is List) return v; } catch (_) {}
+    try { final v = (c as dynamic).subcategories; if (v is List) return v; } catch (_) {}
+    try { final v = (c as dynamic).children; if (v is List) return v; } catch (_) {}
+    return const <dynamic>[];
+  }
+
+  String _readSubId(dynamic s) {
+    try { return (s as dynamic).id as String; } catch (_) {}
+    try { return (s as dynamic).code as String; } catch (_) {}
+    return s.toString();
+  }
+
+  String _readSubLabel(dynamic s) {
+    try { final v = (s as dynamic).label; if (v is String && v.isNotEmpty) return v; } catch (_) {}
+    try { final v = (s as dynamic).name;  if (v is String && v.isNotEmpty) return v; } catch (_) {}
+    try { final v = (s as dynamic).title; if (v is String && v.isNotEmpty) return v; } catch (_) {}
+    return 'بدون‌نام';
+  }
+  // ------------------------------------------------------------------
+
+  dynamic _findCatById(String? id) {
+    if (id == null) return null;
+    for (final c in kAllCategories) {
+      if (_readCatId(c) == id) return c;
+    }
+    return null;
+  }
+
+  List<dynamic> get _subs {
+    final cat = _findCatById(_categoryId);
+    return cat == null ? const <dynamic>[] : _readCatSubs(cat);
+  }
+
+  Future<List<Uint8List>> _collectPhotoBytes() async {
+    final out = <Uint8List>[];
+    for (final f in _photos) {
+      try { out.add(await f.readAsBytes()); } catch (_) {}
+    }
+    return out;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = widget.initial;
+    _categoryId     = draft?.categoryId ?? widget.initialCategoryId ?? (kAllCategories.isNotEmpty ? _readCatId(kAllCategories.first) : null);
+    _subcategoryId  = draft?.subcategoryId ?? widget.initialSubcategoryId;
+
+    final initTitle = draft?.title ?? widget.initialTitle;
+    final initDesc  = draft?.description ?? widget.initialDescription;
+    final initPrice = draft?.price ?? widget.initialPrice;
+
+    if (initTitle != null) _titleCtl.text = initTitle;
+    if (initDesc  != null) _descCtl.text  = initDesc;
+    if (initPrice != null) _priceCtl.text = initPrice.toString();
+  }
+
+  @override
+  void dispose() {
+    _titleCtl.dispose();
+    _priceCtl.dispose();
+    _descCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!(_form.currentState?.validate() ?? false)) return;
+
+    final images = await _collectPhotoBytes();
+    final price  = double.tryParse(_priceCtl.text.replaceAll(',', ''));
+
+    // این ساختار با ProductCard معمولاً سازگار است (title/price/available/createdAt ...)
+    final product = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'title': _titleCtl.text.trim(),
+      'description': _descCtl.text.trim(),
+      'price': price ?? 0,
+      'categoryId': _categoryId,
+      'subcategoryId': _subcategoryId,
+      'available': _available,
+      'createdAt': DateTime.now(),
+      'images': images, // اگر کارتت چیز دیگری می‌خواهد بگو تا تبدیل کنم
+    };
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('محصول ذخیره شد')),
+    );
+
+    // 👈 نتیجه را به صفحهٔ قبل برگردان تا Home فوراً آیتم را اضافه کند
+    Navigator.of(context).pop(product);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('افزودن محصول (دستی)'),
+        actions: [
+          IconButton(
+            onPressed: _save,
+            icon: const Icon(Icons.check),
+            tooltip: 'ذخیره',
+          ),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Card(
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _form,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // تصاویر
+                      PhotoPickerGrid(
+                        maxCount: 8,
+                        initial: _photos,
+                        onChanged: (l) => setState(() => _photos = l),
+                        title: 'تصاویر محصول',
+                      ),
+                      const SizedBox(height: 16),
+
+                      // عنوان
+                      TextFormField(
+                        controller: _titleCtl,
+                        decoration: const InputDecoration(
+                          labelText: 'عنوان',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'عنوان را وارد کنید' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // کتگوری
+                      DropdownButtonFormField<String>(
+                        value: _categoryId,
+                        items: kAllCategories.map((c) {
+                          final id = _readCatId(c);
+                          final label = _readCatLabel(c);
+                          return DropdownMenuItem(
+                            value: id,
+                            child: Text(label),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setState(() {
+                          _categoryId = v;
+                          _subcategoryId = null;
+                        }),
+                        decoration: const InputDecoration(
+                          labelText: 'کتگوری',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // زیرکتگوری
+                      DropdownButtonFormField<String>(
+                        value: _subcategoryId,
+                        items: _subs.map((s) {
+                          final id = _readSubId(s);
+                          final label = _readSubLabel(s);
+                          return DropdownMenuItem(
+                            value: id,
+                            child: Text(label),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setState(() => _subcategoryId = v),
+                        decoration: const InputDecoration(
+                          labelText: 'زیرکتگوری',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // قیمت
+                      TextFormField(
+                        controller: _priceCtl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'قیمت',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.payments_outlined),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'قیمت را وارد کنید';
+                          final n = double.tryParse(v.replaceAll(',', ''));
+                          if (n == null || n < 0) return 'قیمت نامعتبر است';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // توضیحات
+                      TextFormField(
+                        controller: _descCtl,
+                        minLines: 3,
+                        maxLines: 6,
+                        decoration: const InputDecoration(
+                          labelText: 'توضیحات',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      SwitchListTile(
+                        value: _available,
+                        onChanged: (v) => setState(() => _available = v),
+                        title: const Text('موجود است'),
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: cs.primary,
+                      ),
+
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: const Icon(Icons.close),
+                              label: const Text('انصراف'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: _save,
+                              icon: const Icon(Icons.check),
+                              label: const Text('ذخیره'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

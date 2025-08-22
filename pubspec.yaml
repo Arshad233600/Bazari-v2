@@ -1,0 +1,42 @@
+﻿name: bazari_8656
+description: bazari_8656 Flutter app
+version: 0.1.0+1
+publish_to: "none"
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
+  # ذخیره محلی
+  shared_preferences: ^2.3.2
+
+  # انتخاب عکس از گالری/دوربین
+  image_picker: ^1.0.7
+
+  # مکان و آدرس
+  geolocator: ^12.0.0
+  geocoding: ^2.2.0
+
+  # لیبل‌گذاری تصویر (روی دستگاه)
+  google_mlkit_image_labeling: ^0.13.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # اگر بعداً فایل‌های ترجمه/فونت/تصویر افزودید، این‌جا paths را باز کنید.
+  # assets:
+  #   - assets/i18n/
+  #   - assets/images/
+  generate: true

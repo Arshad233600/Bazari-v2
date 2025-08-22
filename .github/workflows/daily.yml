@@ -1,0 +1,21 @@
+name: Daily Build, Deploy & Backup
+on:
+  schedule: [ { cron: "0 2 * * *" } ]
+  workflow_dispatch:
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter pub get
+      - run: flutter analyze && flutter test
+      - run: flutter build web --release
+      - run: zip -r bazari_backup_${{ github.run_id }}.zip .
+      - uses: actions/upload-artifact@v4
+        with: { name: bazari-backup-${{ github.run_id }}, path: bazari_backup_${{ github.run_id }}.zip, retention-days: 60 }
+      - uses: w9jds/firebase-action@v13
+        if: ${{ success() }}
+        with: { args: deploy --only hosting }
+        env: { FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}, PROJECT_ID: ${{ secrets.FIREBASE_PROJECT }} }

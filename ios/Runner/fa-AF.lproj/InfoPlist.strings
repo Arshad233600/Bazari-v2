@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "برای گرفتن عکس و افزودن تصاویر آگهی به دوربین نیاز داریم.";
+"NSPhotoLibraryUsageDescription" = "برای انتخاب عکس از گالری به دسترسی کتابخانهٔ تصاویر نیاز داریم.";
+"NSPhotoLibraryAddUsageDescription" = "برای ذخیرهٔ عکس در گالری به مجوز نوشتن نیاز داریم.";
+"NSLocationWhenInUseUsageDescription" = "برای نمایش موقعیت شما روی نقشه و پیشنهادهای نزدیک به دسترسی مکان نیاز داریم.";
