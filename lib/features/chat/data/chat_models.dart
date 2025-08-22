@@ -39,6 +39,12 @@ class Message {
   bool isMine(String myUid) => senderId == myUid;
 
   factory Message.fromMap(String id, Map<String, dynamic> map) {
+    DateTime _parse(dynamic v) {
+      if (v is DateTime) return v;
+      if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
+      return DateTime.tryParse('$v') ?? DateTime.now();
+    }
+
     return Message(
       id: id,
       chatId: map['chatId'] ?? '',
@@ -47,8 +53,8 @@ class Message {
       senderAvatar: map['senderAvatar'],
       text: map['text'],
       imageUrl: map['imageUrl'],
-      sentAt: DateTime.tryParse('${map['sentAt']}') ?? DateTime.now(),
-      type: map['type'] == 'image' ? MessageType.image : MessageType.text,
+      sentAt: _parse(map['sentAt']),
+      type: (map['type'] == 'image') ? MessageType.image : MessageType.text,
       readBy: Map<String, bool>.from(map['readBy'] ?? {}),
       replyToMessageId: map['replyToMessageId'],
     );
@@ -61,14 +67,14 @@ class Message {
         'senderAvatar': senderAvatar,
         'text': text,
         'imageUrl': imageUrl,
-        'sentAt': sentAt.toIso8601String(),
+        'sentAt': sentAt.millisecondsSinceEpoch,
         'type': type == MessageType.image ? 'image' : 'text',
         'readBy': readBy,
         'replyToMessageId': replyToMessageId,
       };
 }
 
-/// مدل گفتگو (Chat)
+/// مدل گفتگو برای لیست چت‌ها
 class Chat {
   final String id;
   final String title;
