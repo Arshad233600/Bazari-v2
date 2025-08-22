@@ -51,11 +51,12 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   bool _isRtl(BuildContext c) {
     final code = Localizations.localeOf(c).languageCode.toLowerCase();
     return Directionality.of(c) == TextDirection.rtl ||
-        const {'fa','ar','ur','ps','he'}.contains(code);
+        const {'fa', 'ar', 'ur', 'ps', 'he'}.contains(code);
   }
 
   Future<void> _load() async {
-    await Future.sync(() => _repo.markRead(widget.chatId)); // safe for void/Future<void>
+    // safe for void/Future<void>:
+    await Future.sync(() => _repo.markRead(widget.chatId));
     final list = await _repo.getMessages(widget.chatId);
     if (!mounted) return;
     setState(() {
@@ -80,7 +81,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       if (instant) {
         _scroll.jumpTo(_scroll.position.maxScrollExtent);
       } else {
-        _scroll.animateTo(target, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+        _scroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -88,12 +93,19 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   Future<void> _send() async {
     final text = _ctl.text.trim();
     if (text.isEmpty || _sending) return;
+
     setState(() => _sending = true);
     try {
       await _repo.sendMessage(widget.chatId, text);
       _ctl.clear();
+      // دوباره بارگذاری (ساده و مطمئن)؛ اگر ترجیح می‌دهی فقط append کنی، می‌توانیم همان را پیاده کنیم.
       await _load();
       _jumpToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ارسال ناموفق بود: $e')),
+      );
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -129,285 +141,311 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
-        appBar: AppBar(
-          titleSpacing: 0,
-          title: Row(
+        resizeToAvoidBottomInset: true,
+        appBar: AppBar(title: Text(widget.title)),
+        body: SafeArea(
+          child: Column(
             children: [
-              CircleAvatar(radius: 18, child: Text(_initials(widget.title))),
-              const SizedBox(width: 12),
-              Expanded(child: Text(widget.title, overflow: TextOverflow.ellipsis)),
+              // هدر محصول (اختیاری)
+              if ((widget.productTitle?.isNotEmpty ?? false) ||
+                  (widget.productImage?.isNotEmpty ?? false))
+                _ProductHeader(
+                  title: widget.productTitle,
+                  imageUrl: widget.productImage,
+                ),
+
+              // بدنهٔ چت
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _messages.isEmpty
+                        ? const Center(child: Text('گفتگویی ثبت نشده است.'))
+                        : ListView.separated(
+                            controller: _scroll,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            itemCount: _messages.length + _dateSeparatorsCount(_messages),
+                            separatorBuilder: (_, __) => const SizedBox(height: 2),
+                            itemBuilder: (_, virtualIndex) {
+                              // درج «جداکننده تاریخ» بین روزهای متفاوت:
+                              final map = _virtualIndexToRealIndex(virtualIndex, _messages);
+                              if (map.isSeparator) {
+                                return _DateChip(text: _shortDate(context, map.date!));
+                              }
+
+                              final i = map.realIndex!;
+                              final m = _messages[i];
+                              final isMe = m.isMine ?? false; // در مدل شما این فیلد هست
+                              final bubble = _MessageBubble(
+                                text: m.text,
+                                time: _time(m.createdAt),
+                                isMe: isMe,
+                                onLongPress: () async {
+                                  await Clipboard.setData(ClipboardData(text: m.text));
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('پیام کپی شد')),
+                                  );
+                                },
+                                senderAvatar: (m.senderName?.isNotEmpty ?? false)
+                                    ? _initials(m.senderName!)
+                                    : null,
+                              );
+                              return bubble;
+                            },
+                          ),
+              ),
+
+              // ورودی پیام + انیمیشن همگام با کیبورد
+              AnimatedPadding(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: _InputBar(
+                  controller: _ctl,
+                  onSend: _send,
+                  sending: _sending,
+                ),
+              ),
             ],
           ),
         ),
-        body: Stack(
-          children: [
-            Column(
-              children: [
-                if ((widget.productTitle?.isNotEmpty ?? false) ||
-                    (widget.productImage?.isNotEmpty ?? false))
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: cs.outlineVariant),
-                    ),
-                    child: Row(
-                      children: [
-                        if ((widget.productImage?.isNotEmpty ?? false))
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              widget.productImage!,
-                              width: 56, height: 56, fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const SizedBox(
-                                width: 56, height: 56, child: Icon(Icons.image_not_supported_outlined),
-                              ),
-                            ),
-                          )
-                        else
-                          const SizedBox(width: 56, height: 56, child: Icon(Icons.image_outlined)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.productTitle ?? '—',
-                            maxLines: 2, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                Expanded(
-                  child: _loading
-                      ? const Center(child: CircularProgressIndicator())
-                      : (_messages.isEmpty)
-                      ? _EmptyState(onRefresh: _load)
-                      : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      itemCount: _messages.length,
-                      itemBuilder: (ctx, i) {
-                        final m = _messages[i];
-                        final isMine = m.sender == 'me';
-                        final showDateChip = i == 0 ||
-                            !_sameDay(m.createdAt, _messages[i - 1].createdAt);
+        // دکمه «پرش به انتها»
+        floatingActionButton: _showJumpToBottom
+            ? FloatingActionButton.small(
+                onPressed: () => _jumpToBottom(),
+                child: const Icon(Icons.arrow_downward),
+              )
+            : null,
+      ),
+    );
+  }
 
-                        final bubble = Align(
-                          alignment:
-                          isMine ? Alignment.centerRight : Alignment.centerLeft,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 340),
-                            child: GestureDetector(
-                              onLongPress: () {
-                                final t = m.text.trim();
-                                if (t.isEmpty) return;
-                                Clipboard.setData(ClipboardData(text: t));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('متن کپی شد')),
-                                );
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 4),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isMine
-                                      ? cs.primaryContainer
-                                      : cs.surfaceContainerHighest,
-                                  borderRadius:
-                                  BorderRadius.circular(12).copyWith(
-                                    bottomLeft:
-                                    Radius.circular(isMine ? 12 : 2),
-                                    bottomRight:
-                                    Radius.circular(isMine ? 2 : 12),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: isMine
-                                      ? CrossAxisAlignment.end
-                                      : CrossAxisAlignment.start,
-                                  children: [
-                                    // جهت متن را با RTL/LTR هماهنگ کن
-                                    Directionality(
-                                      textDirection: isRtl
-                                          ? TextDirection.rtl
-                                          : TextDirection.ltr,
-                                      child: Text(
-                                        m.text,
-                                        textAlign: TextAlign.start,
-                                        style: const TextStyle(fontSize: 15, height: 1.35),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(_time(m.createdAt),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
+  /* ------ منطق درج جداکننده تاریخ بین پیام‌ها ------ */
 
-                        if (!showDateChip) return bubble;
+  int _dateSeparatorsCount(List<Message> list) {
+    if (list.isEmpty) return 0;
+    int c = 1; // روزِ اولین پیام
+    for (int i = 1; i < list.length; i++) {
+      if (!_sameDay(list[i - 1].createdAt, list[i].createdAt)) c++;
+    }
+    return c;
+  }
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const SizedBox(height: 4),
-                            _DateChip(label: _shortDate(context, m.createdAt)),
-                            const SizedBox(height: 8),
-                            bubble,
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
+  _VirtualIndex _virtualIndexToRealIndex(int vIndex, List<Message> list) {
+    // vIndex: شمارندهٔ آیتم‌های واقعی + جداکننده‌ها
+    // خروجی: اگر separator باشد، realIndex=null و تاریخ دارد
+    DateTime? currentDay;
+    int separatorsSoFar = 0;
+    for (int i = 0; i < list.length; i++) {
+      final d = DateTime(list[i].createdAt.year, list[i].createdAt.month, list[i].createdAt.day);
+      final isNewDay = currentDay == null || d != currentDay;
+      if (isNewDay) {
+        // یک separator قبل از اولین پیام روز
+        if (vIndex == separatorsSoFar) {
+          return _VirtualIndex.separator(date: d);
+        }
+        separatorsSoFar++;
+        currentDay = d;
+      }
+      if (vIndex == i + separatorsSoFar) {
+        return _VirtualIndex.realIndex(i);
+      }
+    }
+    // اگر آخر لیست، یک جداکنندهٔ پایانی بخواهد:
+    final lastDay = list.isNotEmpty
+        ? DateTime(list.last.createdAt.year, list.last.createdAt.month, list.last.createdAt.day)
+        : null;
+    return _VirtualIndex.separator(date: lastDay);
+  }
+}
 
-                _Composer(controller: _ctl, sending: _sending, onSend: _send),
-              ],
-            ),
+class _VirtualIndex {
+  final bool isSeparator;
+  final int? realIndex;
+  final DateTime? date;
+  _VirtualIndex.realIndex(this.realIndex)
+      : isSeparator = false,
+        date = null;
+  _VirtualIndex.separator({required this.date})
+      : isSeparator = true,
+        realIndex = null;
+}
 
-            if (_showJumpToBottom)
-              Positioned(
-                right: 12,
-                bottom: 86,
-                child: FloatingActionButton.small(
-                  onPressed: _jumpToBottom,
-                  tooltip: 'رفتن به انتهای گفتگو',
-                  child: const Icon(Icons.keyboard_arrow_down_rounded),
-                ),
+/* ======================= ویجت‌های نمایشی ======================= */
+
+class _ProductHeader extends StatelessWidget {
+  const _ProductHeader({this.title, this.imageUrl});
+  final String? title;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if ((title?.isEmpty ?? true) && (imageUrl?.isEmpty ?? true)) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          if (imageUrl?.isNotEmpty ?? false)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                imageUrl!,
+                width: 54,
+                height: 54,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    const SizedBox(width: 54, height: 54, child: Icon(Icons.image)),
               ),
-          ],
-        ),
+            ),
+          if (imageUrl?.isNotEmpty ?? false) const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title ?? '',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.start,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/* ------------------------- Sub-widgets ------------------------- */
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({
+    required this.text,
+    required this.time,
+    required this.isMe,
+    this.senderAvatar,
+    this.onLongPress,
+  });
 
-class _Composer extends StatelessWidget {
-  final TextEditingController controller;
-  final VoidCallback onSend;
-  final bool sending;
+  final String text;
+  final String time;
+  final bool isMe;
+  final String? senderAvatar; // حروف اول اسم فرستنده
+  final VoidCallback? onLongPress;
 
-  const _Composer({
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bg = isMe
+        ? theme.colorScheme.primary.withOpacity(.88)
+        : theme.colorScheme.surfaceVariant;
+    final fg = isMe ? Colors.white : theme.colorScheme.onSurfaceVariant;
+
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe && senderAvatar != null && senderAvatar!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 6),
+              child: CircleAvatar(
+                radius: 12,
+                child: Text(
+                  senderAvatar!,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          GestureDetector(
+            onLongPress: onLongPress,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(14),
+                  topRight: const Radius.circular(14),
+                  bottomLeft: Radius.circular(isMe ? 14 : 4),
+                  bottomRight: Radius.circular(isMe ? 4 : 14),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  Text(text, style: TextStyle(color: fg, height: 1.25)),
+                  const SizedBox(height: 4),
+                  Text(time, style: TextStyle(color: fg.withOpacity(.85), fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InputBar extends StatelessWidget {
+  const _InputBar({
     required this.controller,
     required this.onSend,
     required this.sending,
   });
 
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final bool sending;
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isRtl = Directionality.of(context) == TextDirection.rtl;
-
-    return SafeArea(
-      top: false,
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      elevation: 4,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         decoration: BoxDecoration(
-          color: cs.surface,
-          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+          border: Border(top: BorderSide(color: theme.dividerColor)),
         ),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: Row(
           children: [
             Expanded(
-              child: Directionality(
-                textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-                child: TextField(
-                  controller: controller,
-                  minLines: 1,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.newline,
-                  decoration: const InputDecoration(
-                    hintText: 'یک پیام بنویسید…',
-                    border: OutlineInputBorder(borderSide: BorderSide.none),
-                    filled: true,
-                  ),
+              child: TextField(
+                controller: controller,
+                minLines: 1,
+                maxLines: 5,
+                textInputAction: TextInputAction.newline,
+                decoration: const InputDecoration(
+                  hintText: 'پیام بنویسید…',
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
+                onSubmitted: (_) => onSend(),
               ),
             ),
             const SizedBox(width: 8),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: sending
-                  ? const Padding(
-                key: ValueKey('sending'),
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-                  : FilledButton.icon(
-                key: const ValueKey('send'),
-                onPressed: onSend,
-                icon: const Icon(Icons.send),
-                label: const Text('ارسال'),
-              ),
+            FilledButton.icon(
+              onPressed: sending ? null : onSend,
+              icon: sending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send),
+              label: Text(sending ? 'در حال ارسال…' : 'ارسال'),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _DateChip extends StatelessWidget {
-  const _DateChip({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: cs.surface.withOpacity(0.78),
-        border: Border.all(color: cs.outlineVariant),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: cs.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onRefresh});
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 100),
-          Icon(Icons.chat_bubble_outline, size: 48),
-          SizedBox(height: 12),
-          Center(child: Text('هنوز پیامی وجود ندارد', style: TextStyle(fontSize: 15))),
-          SizedBox(height: 8),
-          Center(child: Text('اولین پیام را شما بفرستید ✨', style: TextStyle(fontSize: 13))),
-          SizedBox(height: 400),
-        ],
       ),
     );
   }
