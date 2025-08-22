@@ -29,6 +29,8 @@ import 'package:bazari_8656/common/widgets/horizontal_chips.dart';
 import 'package:bazari_8656/features/chat/widgets/chat_badge_action.dart';
 
 import '../../product/pages/product_view_page.dart' as pv;
+// 👇 اضافه شد: مدل Product نسخهٔ صفحهٔ محصول
+import 'package:bazari_8656/features/product/models/product.dart' as fp;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -330,8 +332,8 @@ class _HomePageState extends State<HomePage>
 
   void _prependNewItem(Map<String, dynamic> item) {
     final id =
-    (item['id'] ?? DateTime.now().millisecondsSinceEpoch.toString())
-        .toString();
+        (item['id'] ?? DateTime.now().millisecondsSinceEpoch.toString())
+            .toString();
     final title = (item['title'] ?? 'New Item').toString();
     final priceRaw = item['price'];
     final price = priceRaw is num
@@ -440,7 +442,7 @@ class _HomePageState extends State<HomePage>
               Expanded(
                 child: Container(
                   margin:
-                  const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
                     color: cs.surfaceVariant.withOpacity(0.6),
@@ -476,11 +478,11 @@ class _HomePageState extends State<HomePage>
                         onPressed: _imgSearching ? null : _searchByImage,
                         icon: _imgSearching
                             ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child:
-                          CircularProgressIndicator(strokeWidth: 2),
-                        )
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
                             : const Icon(Icons.camera_alt_outlined),
                       ),
                     ],
@@ -532,7 +534,7 @@ class _HomePageState extends State<HomePage>
                     children: _suggestions.map((s) {
                       return ActionChip(
                         label:
-                        Text(s, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(s, maxLines: 1, overflow: TextOverflow.ellipsis),
                         onPressed: () {
                           _searchCtl.text = s;
                           _onQueryChanged(s);
@@ -580,22 +582,27 @@ class _HomePageState extends State<HomePage>
                 padding: const EdgeInsets.all(12),
                 sliver: SliverGrid(
                   gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+                      const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     childAspectRatio: 0.72,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                        (c, i) {
+                    (c, i) {
                       final p = _items[i];
+
+                      // 👇 تبدیل مدل دیتامدل → مدل صفحهٔ محصول
+                      final vp = _toFeatureProduct(p);
+
                       return GestureDetector(
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                              builder: (_) => pv.ProductViewPage(
-                                    p: p,
-                                    currentUserId: AuthService.instance.currentUserId ?? 'guest',
-                                  )),
+                            builder: (_) => pv.ProductViewPage(
+                              p: vp,
+                              currentUserId: _resolveCurrentUserId(),
+                            ),
+                          ),
                         ),
                         child: RepaintBoundary(child: ProductCard(p: p)),
                       );
@@ -632,9 +639,9 @@ class _HomePageState extends State<HomePage>
             SliverToBoxAdapter(
               child: _loading && _items.isNotEmpty
                   ? const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Center(child: CircularProgressIndicator()),
-              )
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
                   : const SizedBox.shrink(),
             ),
 
@@ -670,13 +677,13 @@ class _HomePageState extends State<HomePage>
 
           if (sel == 'manual') {
             final result =
-            await Navigator.of(context).push<Map<String, dynamic>>(
+                await Navigator.of(context).push<Map<String, dynamic>>(
               MaterialPageRoute(builder: (_) => const AddProductManualPage()),
             );
             if (result != null) _prependNewItem(result);
           } else if (sel == 'ai') {
             final aiResult =
-            await Navigator.of(context).push<Map<String, dynamic>>(
+                await Navigator.of(context).push<Map<String, dynamic>>(
               MaterialPageRoute(builder: (_) => const AddProductAiPage()),
             );
             if (aiResult != null) _prependNewItem(aiResult);
@@ -701,6 +708,37 @@ class _HomePageState extends State<HomePage>
               MaterialPageRoute(builder: (_) => const UserDashboardPage()));
         },
       ),
+    );
+  }
+
+  // ---------- Helpers (جدید): گرفتن UID و تبدیل مدل ----------
+
+  /// سعی می‌کند userId را از AuthService با مسیرهای مختلف بخواند، در غیر این صورت 'guest'
+  String _resolveCurrentUserId() {
+    try {
+      final a = AuthService.instance as dynamic;
+      try { final v = a.currentUserId; if (v is String && v.isNotEmpty) return v; } catch (_) {}
+      try { final v = a.userId;        if (v is String && v.isNotEmpty) return v; } catch (_) {}
+      try { final v = a.uid;           if (v is String && v.isNotEmpty) return v; } catch (_) {}
+      try { final v = a.currentUser?.uid; if (v is String && v.isNotEmpty) return v; } catch (_) {}
+    } catch (_) {}
+    return 'guest';
+  }
+
+  /// مبدل Product (data/models.dart) → Product (features/product/models/product.dart)
+  fp.Product _toFeatureProduct(Product p) {
+    return fp.Product(
+      id: p.id,
+      title: p.title,
+      price: p.price,
+      currency: p.currency,
+      imageUrl: p.imageUrl,        // اگر مدل صفحه چندعکسی باشد، خودش هندل می‌کند/یا بعداً ارتقا می‌دهیم
+      createdAt: p.createdAt,
+      sellerId: p.sellerId,
+      sellerName: p.sellerName,
+      sellerAvatarUrl: p.sellerAvatarUrl,
+      categoryId: p.categoryId,
+      // سایر فیلدها اگر در مدل صفحه اجباری نیستند، نیاز نیست پاس دهی.
     );
   }
 }
@@ -754,7 +792,7 @@ class _GridSkeleton extends StatelessWidget {
           crossAxisSpacing: 12,
         ),
         delegate: SliverChildBuilderDelegate(
-              (c, i) {
+          (c, i) {
             return _Shimmer(
               child: Container(
                 decoration: BoxDecoration(
@@ -909,12 +947,6 @@ class _ProBottomBar extends StatelessWidget {
 
             // راست: چت (با Badge آماده)
             const ChatBadgeAction(),
-            // اگر خواستی کنترل دستی:
-            // IconButton(
-            //   tooltip: AppLang.instance.t('chats'),
-            //   icon: const Icon(Icons.chat_bubble_outline),
-            //   onPressed: onChat,
-            // ),
           ],
         ),
       ),
