@@ -58,10 +58,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 
   Future<void> _load() async {
     try {
-      // نگذار مارک‌خوانده‌شدن UI را نگه دارد
+      // مارک خوانده‌شدن را بی‌صدا انجام بده
       Future.microtask(() => _repo.markRead(widget.chatId));
 
-      // اگر شبکه کند باشد، صفحه گیر نکند
       final list = await _repo
           .getMessages(widget.chatId)
           .timeout(const Duration(seconds: 10));
@@ -90,18 +89,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       await _repo.sendMessage(widget.chatId, text);
       _ctl.clear();
 
-      // برای تجربه‌ی سریع: محلی اضافه می‌کنیم
-      setState(() {
-        _messages.add(
-          Message(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            text: text,
-            createdAt: DateTime.now(),
-            isMine: true,
-            // اگر مدل شما فیلدهای بیشتری دارد (senderId/Name …) اینجا ست کنید
-          ),
-        );
-      });
+      // برای سازگاری با مدل شما، پیام local نمی‌سازیم؛ از منبع اصلی دوباره می‌خوانیم
+      await _load();
       _jumpToBottom();
     } catch (e) {
       if (!mounted) return;
@@ -145,6 +134,37 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  String _time(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+  String _shortDate(BuildContext context, DateTime dt) =>
+      MaterialLocalizations.of(context).formatShortDate(dt);
+
+  // ---- سازگارکنندهٔ مدل Message شما ----
+  // تشخیص اینکه پیام مالِ خودِ کاربر است یا نه
+  bool _computeIsMine(Message m) {
+    try {
+      final dyn = (m as dynamic);
+      // اگر فیلد isMine وجود داشته باشد
+      if (dyn.isMine is bool) return dyn.isMine as bool;
+      // اگر senderId و userId موجود باشد
+      final senderId = dyn.senderId?.toString();
+      final current = (_repo as dynamic).currentUserId?.toString();
+      if (senderId != null && current != null) return senderId == current;
+    } catch (_) {}
+    return false;
+  }
+
+  // استخراج نام فرستنده اگر وجود داشته باشد (برای آواتار حرف اول)
+  String? _extractSenderName(Message m) {
+    try {
+      final dyn = (m as dynamic);
+      if (dyn.senderName is String) return dyn.senderName as String;
+      if (dyn.sender is String) return dyn.sender as String;
+    } catch (_) {}
+    return null;
+  }
+
   String _initials(String s) {
     final parts =
         s.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
@@ -153,12 +173,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     final b = parts.length > 1 ? parts.last[0] : '';
     return (a + b).toUpperCase();
   }
-
-  String _time(DateTime dt) =>
-      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-
-  String _shortDate(BuildContext context, DateTime dt) =>
-      MaterialLocalizations.of(context).formatShortDate(dt);
 
   /* ====================== UI ====================== */
 
@@ -203,12 +217,14 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                               }
                               final i = map.realIndex!;
                               final m = _messages[i];
+                              final isMe = _computeIsMine(m);
+                              final senderName = _extractSenderName(m);
                               return _MessageBubble(
                                 text: m.text,
                                 time: _time(m.createdAt),
-                                isMe: m.isMine ?? false,
-                                senderAvatar: (m.senderName?.isNotEmpty ?? false)
-                                    ? _initials(m.senderName!)
+                                isMe: isMe,
+                                senderAvatar: senderName != null && senderName.isNotEmpty
+                                    ? _initials(senderName)
                                     : null,
                                 onLongPress: () async {
                                   await Clipboard.setData(
@@ -249,11 +265,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
-  /* --------- منطقِ جداکننده تاریخ بین پیام‌ها --------- */
+  /* --------- جداکننده تاریخ بین پیام‌ها --------- */
 
   int _dateSeparatorsCount(List<Message> list) {
     if (list.isEmpty) return 0;
-    int c = 1; // اولین روز
+    int c = 1; // روزِ اولین پیام
     for (int i = 1; i < list.length; i++) {
       if (!_sameDay(list[i - 1].createdAt, list[i].createdAt)) c++;
     }
