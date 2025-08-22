@@ -1,6 +1,7 @@
+// lib/features/chat/pages/chat_list_page.dart
 import 'package:flutter/material.dart';
-import '../data/chat_models.dart';
 import '../data/chat_repository.dart';
+import '../data/chat_models.dart';
 import 'chat_room_page.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -12,8 +13,7 @@ class ChatListPage extends StatefulWidget {
 
 class _ChatListPageState extends State<ChatListPage> {
   final _repo = ChatRepository.instance;
-  List<Chat> _items = <Chat>[];
-  String _query = '';
+  List<Chat> _items = [];
 
   @override
   void initState() {
@@ -22,70 +22,38 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Future<void> _load() async {
-    final list = await _repo.getChats();
-    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    setState(() => _items = list);
-  }
-
-  List<Chat> get _filtered {
-    if (_query.trim().isEmpty) return _items;
-    final q = _query.trim().toLowerCase();
-    return _items.where((c) {
-      final t = c.title.toLowerCase();
-      final s = c.subtitle.toLowerCase();
-      return t.contains(q) || s.contains(q);
-    }).toList();
+    final chats = await _repo.getChats();
+    setState(() {
+      _items = chats;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final items = _filtered;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('گفتگوها'),
-        actions: [
-          ValueListenableBuilder<int>(
-            valueListenable: _repo.unreadCount,
-            builder: (_, v, __) => Padding(
-              padding: const EdgeInsetsDirectional.only(end: 12),
-              child: Center(child: Text('ناخوانده: $v')),
-            ),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView.builder(
-          itemCount: items.length,
-          itemBuilder: (context, i) {
-            final c = items[i];
-            return ListTile(
-              leading: CircleAvatar(child: Text(c.title.characters.first.toUpperCase())),
-              title: Text(c.title),
-              subtitle: Text(c.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-              trailing: c.unread > 0
-                  ? CircleAvatar(
-                      radius: 10,
-                      backgroundColor: Colors.red,
-                      child: Text('${c.unread}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12)),
-                    )
-                  : null,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChatRoomPage(
-                      chatId: c.id,
-                      meId: 'me',
-                      peerTitle: c.title, // ← قبلاً اشتباه title: بود
-                    ),
+      appBar: AppBar(title: const Text("پیام‌ها")),
+      body: ListView.separated(
+        itemCount: _items.length,
+        separatorBuilder: (_, __) => const Divider(height: 0),
+        itemBuilder: (context, i) {
+          final c = _items[i];
+          return ListTile(
+            title: Text(c.title),
+            subtitle: Text(c.subtitle),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatRoomPage(
+                    chatId: c.id,
+                    meId: 'me', // TODO: از AuthService بگیر
+                    peerTitle: c.title,
                   ),
-                );
-              },
-            );
-          },
-        ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
