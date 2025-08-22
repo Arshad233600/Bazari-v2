@@ -592,7 +592,10 @@ class _HomePageState extends State<HomePage>
                       return GestureDetector(
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                              builder: (_) => pv.ProductViewPage(p: p)),
+                              builder: (_) => pv.ProductViewPage(
+                                    p: p,
+                                    currentUserId: AuthService.instance.currentUserId ?? 'guest',
+                                  )),
                         ),
                         child: RepaintBoundary(child: ProductCard(p: p)),
                       );
