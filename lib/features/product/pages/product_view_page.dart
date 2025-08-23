@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:bazari_8656/features/chat/pages/chat_room_page.dart';
 import 'package:bazari_8656/features/product/models/product.dart' as fp;
 
-/// حداکثر عرض محتوای صفحه روی دسکتاپ/وب
 const double _kMaxContentWidth = 1040;
 const double _kGutter = 16;
 
@@ -11,11 +10,9 @@ class ProductViewPage extends StatefulWidget {
   const ProductViewPage({
     super.key,
     required this.p,
-    required this.currentUserId,
   });
 
   final fp.Product p;
-  final String currentUserId;
 
   @override
   State<ProductViewPage> createState() => _ProductViewPageState();
@@ -48,8 +45,8 @@ class _ProductViewPageState extends State<ProductViewPage> {
             icon: const Icon(Icons.share_outlined),
           ),
           IconButton(
-            tooltip: 'علاقه‌مندی',
-            onPressed: () {}, // این‌جا می‌تونی به wishlist وصل کنی
+            tooltip: 'افزودن به علاقه‌مندی',
+            onPressed: () {}, // TODO: وصل به wishlist
             icon: const Icon(Icons.favorite_border),
           ),
           const SizedBox(width: 4),
@@ -62,8 +59,9 @@ class _ProductViewPageState extends State<ProductViewPage> {
             constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(_kGutter, 12, _kGutter, 24),
-              child: wide ? _buildWideLayout(p, images, seller, details, keywords, similar, cs, th)
-                          : _buildNarrowLayout(p, images, seller, details, keywords, similar, cs, th),
+              child: wide
+                  ? _buildWideLayout(p, images, seller, details, keywords, similar)
+                  : _buildNarrowLayout(p, images, seller, details, keywords, similar),
             ),
           ),
         ),
@@ -72,18 +70,17 @@ class _ProductViewPageState extends State<ProductViewPage> {
         price: p.price,
         currency: p.currency,
         onChat: () {
+          // ChatRoomPage دیگر پارامتر currentUserId ندارد.
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => ChatRoomPage(
                 chatId: seller.id,
-                currentUserId: widget.currentUserId,
                 peerTitle: seller.name,
               ),
             ),
           );
         },
         onBuy: () {
-          // اینجا می‌تونی مسیر خرید/تماس را هندل کنی
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('فعلاً خرید مستقیم فعال نیست.')),
           );
@@ -101,13 +98,10 @@ class _ProductViewPageState extends State<ProductViewPage> {
     Map<String, dynamic> details,
     List<String> keywords,
     List<fp.Product> similar,
-    ColorScheme cs,
-    ThemeData th,
   ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // گالری
         Expanded(
           flex: 6,
           child: _Gallery(
@@ -117,7 +111,6 @@ class _ProductViewPageState extends State<ProductViewPage> {
           ),
         ),
         const SizedBox(width: _kGutter),
-        // اطلاعات
         Expanded(
           flex: 6,
           child: _InfoColumn(
@@ -126,7 +119,6 @@ class _ProductViewPageState extends State<ProductViewPage> {
             details: details,
             keywords: keywords,
             similar: similar,
-            currentUserId: widget.currentUserId,
           ),
         ),
       ],
@@ -140,8 +132,6 @@ class _ProductViewPageState extends State<ProductViewPage> {
     Map<String, dynamic> details,
     List<String> keywords,
     List<fp.Product> similar,
-    ColorScheme cs,
-    ThemeData th,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,7 +148,6 @@ class _ProductViewPageState extends State<ProductViewPage> {
           details: details,
           keywords: keywords,
           similar: similar,
-          currentUserId: widget.currentUserId,
         ),
       ],
     );
@@ -167,18 +156,14 @@ class _ProductViewPageState extends State<ProductViewPage> {
   /* -------------------------- Helpers -------------------------- */
 
   List<String> _imagesOf(fp.Product p) {
-    // اولویت با مدل جدید: images
+    // مدل جدید فقط images دارد
     final imgs = (p.images ?? const <String>[])
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
     if (imgs.isNotEmpty) return imgs;
 
-    // سازگاری با مدل قدیمی: imageUrl
-    final legacy = (p.imageUrl ?? '').toString().trim();
-    if (legacy.isNotEmpty) return [legacy];
-
-    // Placeholder
+    // Placeholder اگر هیچ عکسی نبود
     return ['https://picsum.photos/seed/${p.id}/1200/1200'];
   }
 
@@ -190,13 +175,8 @@ class _ProductViewPageState extends State<ProductViewPage> {
         avatarUrl: p.seller!.avatarUrl,
       );
     }
-    return _SellerVM(
-      id: (p.sellerId ?? 'unknown').toString(),
-      name: (p.sellerName ?? 'فروشنده').toString(),
-      avatarUrl: (p.sellerAvatarUrl ?? '').toString().trim().isEmpty
-          ? null
-          : p.sellerAvatarUrl!.trim(),
-    );
+    // اگر seller در مدل نبود، مقادیر پیش‌فرض
+    return _SellerVM(id: 'unknown', name: 'فروشنده', avatarUrl: null);
   }
 
   Map<String, dynamic> _detailsOf(fp.Product p) {
@@ -205,7 +185,6 @@ class _ProductViewPageState extends State<ProductViewPage> {
     try {
       return Map<String, dynamic>.from(d);
     } catch (_) {
-      // اگر نوع map‌ دقیقاً dynamic نبود
       return d.map((k, v) => MapEntry(k.toString(), v));
     }
   }
@@ -221,7 +200,6 @@ class _ProductViewPageState extends State<ProductViewPage> {
   }
 
   void _share(BuildContext context, fp.Product p) {
-    // اگر خواستی به Share.share متصل کن؛ فعلاً پیام ساده:
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('اشتراک‌گذاری: ${p.title}')),
     );
@@ -271,9 +249,8 @@ class _GalleryState extends State<_Gallery> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // تصویر اصلی با نسبت ثابت و contain
         AspectRatio(
-          aspectRatio: 1, // اگر خواستی 4/3 یا 16/9 کن
+          aspectRatio: 1,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Container(
@@ -316,7 +293,6 @@ class _GalleryState extends State<_Gallery> {
           ),
         ),
         const SizedBox(height: 10),
-        // نوار thumbnailها
         if (widget.images.length > 1)
           SizedBox(
             height: 78,
@@ -328,9 +304,7 @@ class _GalleryState extends State<_Gallery> {
                 final url = widget.images[i];
                 final selected = i == widget.current;
                 return InkWell(
-                  onTap: () {
-                    widget.onIndex(i);
-                  },
+                  onTap: () => widget.onIndex(i),
                   child: Container(
                     width: 78,
                     height: 78,
@@ -457,7 +431,6 @@ class _InfoColumn extends StatelessWidget {
     required this.details,
     required this.keywords,
     required this.similar,
-    required this.currentUserId,
   });
 
   final fp.Product p;
@@ -465,7 +438,6 @@ class _InfoColumn extends StatelessWidget {
   final Map<String, dynamic> details;
   final List<String> keywords;
   final List<fp.Product> similar;
-  final String currentUserId;
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +447,6 @@ class _InfoColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // عنوان + قیمت
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -494,7 +465,6 @@ class _InfoColumn extends StatelessWidget {
 
         const SizedBox(height: 8),
 
-        // کلمات کلیدی
         if (keywords.isNotEmpty)
           Wrap(
             spacing: 8,
@@ -509,7 +479,6 @@ class _InfoColumn extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // توضیحات
         Card(
           elevation: 0,
           color: cs.surface,
@@ -530,7 +499,6 @@ class _InfoColumn extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // جزئیات
         if (details.isNotEmpty)
           Card(
             elevation: 0,
@@ -573,7 +541,6 @@ class _InfoColumn extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // فروشنده + چت
         Card(
           elevation: 0,
           color: cs.surface,
@@ -603,7 +570,6 @@ class _InfoColumn extends StatelessWidget {
                 Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => ChatRoomPage(
                     chatId: seller.id,
-                    currentUserId: currentUserId,
                     peerTitle: seller.name,
                   ),
                 ));
@@ -627,16 +593,13 @@ class _InfoColumn extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (_, i) {
                 final sp = similar[i];
-                final img = ((sp.images ?? const <String>[])
-                            .map((e) => e.trim())
-                            .where((e) => e.isNotEmpty)
-                            .toList())
-                        .isNotEmpty
-                    ? (sp.images ?? const <String>[])
-                        .firstWhere((e) => e.trim().isNotEmpty)
-                    : ((sp.imageUrl ?? '').trim().isNotEmpty
-                        ? sp.imageUrl!.trim()
-                        : 'https://picsum.photos/seed/${sp.id}/600/600');
+                final simImgs = (sp.images ?? const <String>[])
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+                final img = simImgs.isNotEmpty
+                    ? simImgs.first
+                    : 'https://picsum.photos/seed/${sp.id}/600/600';
 
                 return SizedBox(
                   width: 160,
@@ -645,10 +608,7 @@ class _InfoColumn extends StatelessWidget {
                     child: InkWell(
                       onTap: () {
                         Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => ProductViewPage(
-                            p: sp,
-                            currentUserId: currentUserId,
-                          ),
+                          builder: (_) => ProductViewPage(p: sp),
                         ));
                       },
                       child: Column(
