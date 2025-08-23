@@ -1,4 +1,3 @@
-// lib/features/chat/widgets/chat_badge_action.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/chat_repository.dart';
@@ -9,7 +8,7 @@ class ChatBadgeAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // دسترسی داینامیک: اگر unreadCount وجود داشته باشد، از آن استفاده می‌کنیم
+    // تلاش برای استفاده از unreadCount اگر در ریپازیتوری موجود باشد
     final repoDyn = ChatRepository.instance as dynamic;
     ValueListenable<int>? badge;
     try {
@@ -31,12 +30,8 @@ class ChatBadgeAction extends StatelessWidget {
       },
     );
 
-    if (badge == null) {
-      // بدون Badge
-      return button;
-    }
+    if (badge == null) return button;
 
-    // با Badge زنده
     return ValueListenableBuilder<int>(
       valueListenable: badge!,
       builder: (_, v, __) {
