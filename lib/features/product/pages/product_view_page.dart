@@ -1,53 +1,48 @@
 // lib/features/product/pages/product_view_page.dart
 import 'package:flutter/material.dart';
-import '../models/product.dart'; // Product, Seller
+import 'package:bazari_8656/features/product/models/product.dart';
 import 'package:bazari_8656/features/chat/pages/chat_room_page.dart';
+import 'package:bazari_8656/core/services/auth_service.dart';
 
 class ProductViewPage extends StatefulWidget {
   const ProductViewPage({
     super.key,
     required this.p,
-    required this.currentUserId,
   });
 
   final Product p;
-  final String currentUserId;
 
   @override
   State<ProductViewPage> createState() => _ProductViewPageState();
 }
 
 class _ProductViewPageState extends State<ProductViewPage> {
-  late final PageController _page = PageController();
-  int _index = 0;
-
-  @override
-  void dispose() {
-    _page.dispose();
-    super.dispose();
+  // 🆕 helper برای جایگزینی currentUserId
+  String _resolveMeId() {
+    try {
+      final a = AuthService.instance as dynamic;
+      if (a.currentUserId is String && a.currentUserId.isNotEmpty) {
+        return a.currentUserId;
+      }
+      if (a.userId is String && a.userId.isNotEmpty) {
+        return a.userId;
+      }
+      if (a.uid is String && a.uid.isNotEmpty) {
+        return a.uid;
+      }
+      if (a.currentUser?.uid is String && a.currentUser!.uid.isNotEmpty) {
+        return a.currentUser!.uid;
+      }
+    } catch (_) {}
+    return 'guest';
   }
 
-  String _firstImage(Product p) {
-    final imgs = p.images;
-    if (imgs.isNotEmpty) return imgs.first.trim();
-    return 'https://picsum.photos/seed/${p.id}/1200/900';
-  }
-
-  Seller _resolveSeller(Product p) {
-    // مدل جدید: seller ممکن است null باشد
-    if (p.seller != null) return p.seller!;
-    // اگر seller نداشت، یک seller پیش‌فرض می‌سازیم
-    return const Seller(id: 'unknown', name: 'فروشنده');
-  }
+  int _currentImage = 0;
 
   @override
   Widget build(BuildContext context) {
     final p = widget.p;
-    final seller = _resolveSeller(p);
     final th = Theme.of(context);
-    final cs = th.colorScheme;
-
-    final images = p.images.isEmpty ? <String>[_firstImage(p)] : p.images;
 
     return Scaffold(
       appBar: AppBar(
@@ -56,325 +51,249 @@ class _ProductViewPageState extends State<ProductViewPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () {
+              // TODO: پیاده‌سازی اشتراک‌گذاری
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () {
+              // TODO: افزودن به علاقه‌مندی
+            },
+          ),
+        ],
       ),
-      body: ListView(
-        children: [
-          // --- گالری با قابلیت Zoom ---
-          AspectRatio(
-            aspectRatio: 1,
-            child: Stack(
-              children: [
-                PageView.builder(
-                  controller: _page,
-                  onPageChanged: (i) => setState(() => _index = i),
-                  itemCount: images.length,
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // گالری تصاویر
+            if (p.images.isNotEmpty)
+              AspectRatio(
+                aspectRatio: 1,
+                child: PageView.builder(
+                  itemCount: p.images.length,
+                  controller: PageController(viewportFraction: 1),
+                  onPageChanged: (i) => setState(() => _currentImage = i),
                   itemBuilder: (_, i) {
-                    final url = images[i].trim();
-                    return InteractiveViewer(
-                      maxScale: 4,
-                      minScale: 1,
-                      child: Hero(
-                        tag: 'pimg_${p.id}_$i',
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(color: cs.surfaceVariant),
-                          child: url.isEmpty
-                              ? const Icon(Icons.image_not_supported_outlined, size: 48)
-                              : Image.network(url, fit: BoxFit.contain),
-                        ),
-                      ),
+                    return Image.network(
+                      p.images[i],
+                      fit: BoxFit.cover,
                     );
                   },
                 ),
-                if (images.length > 1)
-                  Positioned(
-                    bottom: 8,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.35),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Text(
-                            '${_index + 1}/${images.length}',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
+              ),
+
+            if (p.images.length > 1)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  p.images.length,
+                  (i) => Container(
+                    margin: const EdgeInsets.all(4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _currentImage == i
+                          ? th.colorScheme.primary
+                          : th.colorScheme.onSurface.withOpacity(0.3),
                     ),
                   ),
-              ],
-            ),
-          ),
+                ),
+              ),
 
-          // --- عنوان و قیمت ---
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // عنوان
+                  Text(
                     p.title,
-                    style: th.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                    style: th.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '${p.price.toStringAsFixed(2)} ${p.currency}',
-                  style: th.textTheme.titleMedium?.copyWith(
-                    color: cs.primary,
-                    fontWeight: FontWeight.w700,
+
+                  const SizedBox(height: 8),
+
+                  // قیمت
+                  Text(
+                    '${p.price} ${p.currency}',
+                    style: th.textTheme.titleLarge
+                        ?.copyWith(color: th.colorScheme.primary),
                   ),
-                ),
-              ],
-            ),
-          ),
 
-          // --- فروشنده + دکمهٔ چت ---
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: cs.surfaceVariant,
-                  backgroundImage: (seller.avatarUrl != null &&
-                          seller.avatarUrl!.trim().isNotEmpty)
-                      ? NetworkImage(seller.avatarUrl!.trim())
-                      : null,
-                  child: (seller.avatarUrl == null ||
-                          seller.avatarUrl!.trim().isEmpty)
-                      ? Text(
-                          seller.name.characters.first.toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    seller.name,
-                    style: th.textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () {
-                    // ⚠️ توجه: سازندهٔ ChatRoomPage «currentUserId» ندارد.
-                    // فقط پارامترهای موجود را می‌فرستیم تا ارور «No named parameter…» رفع شود.
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ChatRoomPage(
-                          chatId: seller.id,
-                          peerTitle: seller.name,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: const Text('گفتگو'),
-                ),
-              ],
-            ),
-          ),
+                  const SizedBox(height: 16),
 
-          // --- توضیحات ---
-          if ((p.description?.trim().isNotEmpty ?? false))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Text(
-                p.description!.trim(),
-                style: th.textTheme.bodyMedium,
-              ),
-            ),
-
-          // --- کلمات کلیدی ---
-          if ((p.keywords?.isNotEmpty ?? false))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: p.keywords!
-                    .where((k) => k.trim().isNotEmpty)
-                    .map((k) => Chip(label: Text(k.trim())))
-                    .toList(),
-              ),
-            ),
-
-          // --- جزییات (key/value) ---
-          if ((p.details?.isNotEmpty ?? false))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: _DetailsSimple(
-                categoryId: p.categoryId,
-                details: Map<String, dynamic>.from(p.details!),
-              ),
-            ),
-
-          // --- مشابه‌ها ---
-          if ((p.similar?.isNotEmpty ?? false))
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text('کالاهای مشابه', style: th.textTheme.titleMedium),
-            ),
-          if ((p.similar?.isNotEmpty ?? false))
-            SizedBox(
-              height: 210,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                scrollDirection: Axis.horizontal,
-                itemCount: p.similar!.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (_, i) {
-                  final sp = p.similar![i];
-                  final img = sp.images.isNotEmpty
-                      ? sp.images.first.trim()
-                      : 'https://picsum.photos/seed/${sp.id}/400/300';
-
-                  return InkWell(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ProductViewPage(
-                            p: sp,
-                            currentUserId: widget.currentUserId,
-                          ),
-                        ),
-                      );
-                    },
-                    child: SizedBox(
-                      width: 160,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AspectRatio(
-                            aspectRatio: 1.2,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.network(img, fit: BoxFit.cover),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            sp.title,
-                            style: th.textTheme.bodyMedium,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${sp.price.toStringAsFixed(2)} ${sp.currency}',
-                            style: th.textTheme.bodySmall?.copyWith(
-                              color: cs.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                  // توضیحات
+                  if ((p.description ?? '').trim().isNotEmpty)
+                    Text(
+                      p.description!,
+                      style: th.textTheme.bodyMedium,
                     ),
-                  );
-                },
+
+                  const Divider(height: 32),
+
+                  // جزئیات
+                  if (p.details != null && p.details!.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: p.details!.entries.map((e) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  e.key,
+                                  style: th.textTheme.bodyMedium!
+                                      .copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  e.value,
+                                  style: th.textTheme.bodyMedium,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                  const Divider(height: 32),
+
+                  // فروشنده
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: (p.seller?.avatarUrl != null &&
+                              p.seller!.avatarUrl!.trim().isNotEmpty)
+                          ? NetworkImage(p.seller!.avatarUrl!)
+                          : null,
+                      child: (p.seller?.avatarUrl == null ||
+                              p.seller!.avatarUrl!.trim().isEmpty)
+                          ? Text(
+                              p.seller?.name.characters.first.toUpperCase() ??
+                                  '?',
+                            )
+                          : null,
+                    ),
+                    title: Text(p.seller?.name ?? 'فروشنده'),
+                    subtitle: const Text('مشاهده پروفایل'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.chat_outlined),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ChatRoomPage(
+                              chatId: p.seller?.id ?? 'unknown',
+                              peerTitle: p.seller?.name ?? 'فروشنده',
+                              meId: _resolveMeId(), // ✅ تغییر اصلی
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const Divider(height: 32),
+
+                  // کلمات کلیدی
+                  if (p.keywords != null && p.keywords!.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      children: p.keywords!.map((k) {
+                        return Chip(
+                          label: Text(k),
+                        );
+                      }).toList(),
+                    ),
+
+                  const SizedBox(height: 32),
+
+                  // محصولات مشابه
+                  if (p.similar != null && p.similar!.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'محصولات مشابه',
+                          style: th.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 220,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: p.similar!.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 12),
+                            itemBuilder: (_, i) {
+                              final sp = p.similar![i];
+                              return SizedBox(
+                                width: 160,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ProductViewPage(p: sp),
+                                      ),
+                                    );
+                                  },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      AspectRatio(
+                                        aspectRatio: 1,
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          child: (sp.images.isNotEmpty)
+                                              ? Image.network(
+                                                  sp.images.first,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Container(
+                                                  color: th.colorScheme
+                                                      .surfaceVariant,
+                                                  child: const Icon(Icons
+                                                      .image_not_supported),
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        sp.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: th.textTheme.bodyMedium,
+                                      ),
+                                      Text(
+                                        '${sp.price} ${sp.currency}',
+                                        style: th.textTheme.bodySmall?.copyWith(
+                                          color: th.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
-
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-}
-
-/* ------------------------- جزییات ساده (key → value) ------------------------- */
-
-class _DetailsSimple extends StatelessWidget {
-  const _DetailsSimple({
-    required this.categoryId,
-    required this.details,
-  });
-
-  final String categoryId;
-  final Map<String, dynamic> details;
-
-  @override
-  Widget build(BuildContext context) {
-    final th = Theme.of(context);
-    final entries = details.entries
-        .where((e) => (e.key.toString().trim().isNotEmpty))
-        .toList();
-
-    if (entries.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: th.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < entries.length; i++)
-            _DetailRow(
-              label: entries[i].key.toString(),
-              value: (entries[i].value ?? '').toString(),
-              last: i == entries.length - 1,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-    required this.last,
-  });
-
-  final String label;
-  final String value;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    final th = Theme.of(context);
-    final cs = th.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        border: last
-            ? null
-            : Border(
-                bottom: BorderSide(color: cs.outlineVariant),
-              ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 38,
-            child: Text(
-              label,
-              style: th.textTheme.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 62,
-            child: Text(
-              value,
-              style: th.textTheme.bodyMedium,
-              textAlign: TextAlign.start,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
