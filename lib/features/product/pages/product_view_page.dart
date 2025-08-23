@@ -1,426 +1,786 @@
+// lib/features/product/pages/product_view_page.dart
 import 'package:flutter/material.dart';
-import '../../chat/pages/chat_room_page.dart';
-import '../models/product.dart';
+import 'package:bazari_8656/features/chat/pages/chat_room_page.dart';
+import 'package:bazari_8656/features/product/models/product.dart' as fp;
 
-class ProductViewPage extends StatelessWidget {
-  ProductViewPage({
+/// حداکثر عرض محتوای صفحه روی دسکتاپ/وب
+const double _kMaxContentWidth = 1040;
+const double _kGutter = 16;
+
+class ProductViewPage extends StatefulWidget {
+  const ProductViewPage({
     super.key,
+    required this.p,
     required this.currentUserId,
-    Product? product, // پارامتر جدید
-    Product? p,       // برای سازگاری عقب‌رو (کدهای قدیمی)
-  }) : product = product ?? p ?? (throw ArgumentError('ProductViewPage: product is required'));
+  });
 
+  final fp.Product p;
   final String currentUserId;
 
-  /// محصول
-  final Product product;
+  @override
+  State<ProductViewPage> createState() => _ProductViewPageState();
+}
+
+class _ProductViewPageState extends State<ProductViewPage> {
+  int _current = 0;
 
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context);
+    final cs = th.colorScheme;
+    final p = widget.p;
+
+    final images = _imagesOf(p);
+    final seller = _sellerOf(p);
+    final details = _detailsOf(p);
+    final keywords = _keywordsOf(p);
+    final similar = _similarOf(p);
+
+    final wide = MediaQuery.of(context).size.width >= 900;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(product.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(icon: const Icon(Icons.share_outlined), onPressed: () => _share(context)),
-          PopupMenuButton<String>(
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'report', child: Text('گزارش')),
-              PopupMenuItem(value: 'block', child: Text('بلاک فروشنده')),
-            ],
-            onSelected: (v) {
-              if (v == 'report') _report(context);
-              if (v == 'block') _block(context);
-            },
+          IconButton(
+            tooltip: 'اشتراک‌گذاری',
+            onPressed: () => _share(context, p),
+            icon: const Icon(Icons.share_outlined),
           ),
+          IconButton(
+            tooltip: 'علاقه‌مندی',
+            onPressed: () {}, // این‌جا می‌تونی به wishlist وصل کنی
+            icon: const Icon(Icons.favorite_border),
+          ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: ListView(
-        children: [
-          // گالری
-          AspectRatio(
-            aspectRatio: 1,
-            child: PageView.builder(
-              itemCount: product.images.length,
-              itemBuilder: (context, i) {
-                final url = product.images[i];
-                return Hero(
-                  tag: '${product.id}_img_$i',
-                  child: Image.network(url, fit: BoxFit.cover),
-                );
-              },
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(_kGutter, 12, _kGutter, 24),
+              child: wide ? _buildWideLayout(p, images, seller, details, keywords, similar, cs, th)
+                          : _buildNarrowLayout(p, images, seller, details, keywords, similar, cs, th),
             ),
           ),
-          const SizedBox(height: 16),
+        ),
+      ),
+      bottomNavigationBar: _BottomActionBar(
+        price: p.price,
+        currency: p.currency,
+        onChat: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ChatRoomPage(
+                chatId: seller.id,
+                currentUserId: widget.currentUserId,
+                peerTitle: seller.name,
+              ),
+            ),
+          );
+        },
+        onBuy: () {
+          // اینجا می‌تونی مسیر خرید/تماس را هندل کنی
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('فعلاً خرید مستقیم فعال نیست.')),
+          );
+        },
+      ),
+    );
+  }
 
-          // عنوان + قیمت
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(product.title,
-                style: th.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+  /* -------------------------- Layouts -------------------------- */
+
+  Widget _buildWideLayout(
+    fp.Product p,
+    List<String> images,
+    _SellerVM seller,
+    Map<String, dynamic> details,
+    List<String> keywords,
+    List<fp.Product> similar,
+    ColorScheme cs,
+    ThemeData th,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // گالری
+        Expanded(
+          flex: 6,
+          child: _Gallery(
+            images: images,
+            current: _current,
+            onIndex: (i) => setState(() => _current = i),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-            child: Text(
-              '${product.price.toStringAsFixed(2)} ${product.currency}',
-              style: th.textTheme.titleLarge
-                  ?.copyWith(color: th.colorScheme.primary, fontWeight: FontWeight.w800),
-            ),
+        ),
+        const SizedBox(width: _kGutter),
+        // اطلاعات
+        Expanded(
+          flex: 6,
+          child: _InfoColumn(
+            p: p,
+            seller: seller,
+            details: details,
+            keywords: keywords,
+            similar: similar,
+            currentUserId: widget.currentUserId,
           ),
+        ),
+      ],
+    );
+  }
 
-          // چیپ‌های کلیدواژه
-          if (product.keywords.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: -8,
-                children: product.keywords
-                    .map((k) => ActionChip(label: Text(k), onPressed: () {}))
-                    .toList(),
-              ),
-            ),
+  Widget _buildNarrowLayout(
+    fp.Product p,
+    List<String> images,
+    _SellerVM seller,
+    Map<String, dynamic> details,
+    List<String> keywords,
+    List<fp.Product> similar,
+    ColorScheme cs,
+    ThemeData th,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Gallery(
+          images: images,
+          current: _current,
+          onIndex: (i) => setState(() => _current = i),
+        ),
+        const SizedBox(height: 16),
+        _InfoColumn(
+          p: p,
+          seller: seller,
+          details: details,
+          keywords: keywords,
+          similar: similar,
+          currentUserId: widget.currentUserId,
+        ),
+      ],
+    );
+  }
 
-          const Divider(height: 24),
+  /* -------------------------- Helpers -------------------------- */
 
-          // توضیحات
-          if (product.description.trim().isNotEmpty)
-            _Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(product.description, style: th.textTheme.bodyMedium),
-              ),
-            ),
+  List<String> _imagesOf(fp.Product p) {
+    // اولویت با مدل جدید: images
+    final imgs = (p.images ?? const <String>[])
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (imgs.isNotEmpty) return imgs;
 
-          // جزئیات پویا (اگر داری widget اختصاصی‌اش را نگه داشتی)
-          if (product.details.isNotEmpty)
-            _Card(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                child: _DetailsSimple(categoryId: product.categoryId, details: product.details),
-              ),
-            ),
+    // سازگاری با مدل قدیمی: imageUrl
+    final legacy = (p.imageUrl ?? '').toString().trim();
+    if (legacy.isNotEmpty) return [legacy];
 
-          // فروشنده + چت
-          _Card(
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundImage: (product.seller.avatarUrl != null &&
-                        product.seller.avatarUrl!.trim().isNotEmpty)
-                    ? NetworkImage(product.seller.avatarUrl!)
-                    : null,
-                child: (product.seller.avatarUrl == null ||
-                        product.seller.avatarUrl!.trim().isEmpty)
-                    ? Text(product.seller.name.characters.first.toUpperCase())
-                    : null,
-              ),
-              title: Text(product.seller.name),
-              subtitle: const Text('فعال'),
-              trailing: OutlinedButton.icon(
-                icon: const Icon(Icons.chat),
-                label: const Text('چت'),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatRoomPage(
-                        chatId: product.seller.id,
-                        meId: currentUserId,
-                        peerTitle: product.seller.name, // ← title قدیمی را استفاده نکن
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
+    // Placeholder
+    return ['https://picsum.photos/seed/${p.id}/1200/1200'];
+  }
 
-          // محصولات مشابه
-          if (product.similar.isNotEmpty)
-            _Card(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('محصولات مشابه',
-                        style: th.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 168,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: product.similar.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemBuilder: (context, i) {
-                          final p = product.similar[i];
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ProductViewPage(
-                                    currentUserId: currentUserId,
-                                    product: p,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: SizedBox(
-                              width: 132,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: AspectRatio(
-                                      aspectRatio: 1,
-                                      child: Image.network(p.images.first, fit: BoxFit.cover),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(p.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: th.textTheme.bodyMedium),
-                                  Text(
-                                    '${p.price.toStringAsFixed(0)} ${p.currency}',
-                                    style: th.textTheme.bodySmall
-                                        ?.copyWith(color: th.colorScheme.primary),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+  _SellerVM _sellerOf(fp.Product p) {
+    if (p.seller != null) {
+      return _SellerVM(
+        id: p.seller!.id,
+        name: p.seller!.name,
+        avatarUrl: p.seller!.avatarUrl,
+      );
+    }
+    return _SellerVM(
+      id: (p.sellerId ?? 'unknown').toString(),
+      name: (p.sellerName ?? 'فروشنده').toString(),
+      avatarUrl: (p.sellerAvatarUrl ?? '').toString().trim().isEmpty
+          ? null
+          : p.sellerAvatarUrl!.trim(),
+    );
+  }
 
-          const SizedBox(height: 8),
+  Map<String, dynamic> _detailsOf(fp.Product p) {
+    final d = p.details;
+    if (d == null) return const {};
+    try {
+      return Map<String, dynamic>.from(d);
+    } catch (_) {
+      // اگر نوع map‌ دقیقاً dynamic نبود
+      return d.map((k, v) => MapEntry(k.toString(), v));
+    }
+  }
 
-          // اکشن‌ها
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.favorite_border),
-                    label: const Text('پسندیدن'),
-                    onPressed: () => ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text('محصول لایک شد'))),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.chat),
-                    label: const Text('پیام به فروشنده'),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatRoomPage(
-                            chatId: product.seller.id,
-                            meId: currentUserId,
-                            peerTitle: product.seller.name,
+  List<String> _keywordsOf(fp.Product p) {
+    final k = p.keywords;
+    if (k == null) return const [];
+    return k.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  }
+
+  List<fp.Product> _similarOf(fp.Product p) {
+    return p.similar ?? const <fp.Product>[];
+  }
+
+  void _share(BuildContext context, fp.Product p) {
+    // اگر خواستی به Share.share متصل کن؛ فعلاً پیام ساده:
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('اشتراک‌گذاری: ${p.title}')),
+    );
+  }
+}
+
+/* ============================== Gallery ============================== */
+
+class _Gallery extends StatefulWidget {
+  const _Gallery({
+    required this.images,
+    required this.current,
+    required this.onIndex,
+  });
+
+  final List<String> images;
+  final int current;
+  final ValueChanged<int> onIndex;
+
+  @override
+  State<_Gallery> createState() => _GalleryState();
+}
+
+class _GalleryState extends State<_Gallery> {
+  late final PageController _page = PageController(initialPage: widget.current);
+
+  @override
+  void didUpdateWidget(covariant _Gallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.current != widget.current &&
+        _page.hasClients &&
+        _page.page?.round() != widget.current) {
+      _page.jumpToPage(widget.current);
+    }
+  }
+
+  @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // تصویر اصلی با نسبت ثابت و contain
+        AspectRatio(
+          aspectRatio: 1, // اگر خواستی 4/3 یا 16/9 کن
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              color: cs.surfaceVariant.withOpacity(0.5),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    controller: _page,
+                    onPageChanged: widget.onIndex,
+                    itemCount: widget.images.length,
+                    itemBuilder: (_, i) {
+                      final url = widget.images[i];
+                      return InkWell(
+                        onTap: () => _openFullScreen(context, widget.images, i),
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Image.network(
+                            url,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.broken_image, size: 64),
                           ),
                         ),
                       );
                     },
                   ),
-                ),
-              ],
+                  if (widget.images.length > 1)
+                    Positioned(
+                      left: 12,
+                      right: 12,
+                      bottom: 12,
+                      child: _Dots(
+                        length: widget.images.length,
+                        index: widget.current,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 10),
+        // نوار thumbnailها
+        if (widget.images.length > 1)
+          SizedBox(
+            height: 78,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: widget.images.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) {
+                final url = widget.images[i];
+                final selected = i == widget.current;
+                return InkWell(
+                  onTap: () {
+                    widget.onIndex(i);
+                  },
+                  child: Container(
+                    width: 78,
+                    height: 78,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: Image.network(
+                          url,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.broken_image),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 
-  void _share(BuildContext context) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('لینک محصول به اشتراک گذاشته شد')));
-  }
-
-  void _report(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('گزارش ارسال شد')));
-  }
-
-  void _block(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فروشنده بلاک شد')));
+  void _openFullScreen(BuildContext context, List<String> images, int start) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder: (_) => _FullScreenGallery(images: images, initial: start),
+    );
   }
 }
 
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
-  final Widget child;
+class _Dots extends StatelessWidget {
+  const _Dots({required this.length, required this.index});
+  final int length;
+  final int index;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4))],
-      ),
-      child: child,
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(length, (i) {
+        final active = i == index;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: active ? 18 : 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: active ? cs.primary : cs.onSurface.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+      }),
     );
   }
 }
 
-/// نمایش ساده‌ی Details با لیبل‌های پرکاربرد برای house/car/phone/job
-class _DetailsSimple extends StatelessWidget {
-  const _DetailsSimple({required this.categoryId, required this.details});
-  final String categoryId;
+class _FullScreenGallery extends StatefulWidget {
+  const _FullScreenGallery({required this.images, required this.initial});
+
+  final List<String> images;
+  final int initial;
+
+  @override
+  State<_FullScreenGallery> createState() => _FullScreenGalleryState();
+}
+
+class _FullScreenGalleryState extends State<_FullScreenGallery> {
+  late final PageController _pc = PageController(initialPage: widget.initial);
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        color: Colors.black,
+        alignment: Alignment.center,
+        child: PageView.builder(
+          controller: _pc,
+          itemCount: widget.images.length,
+          itemBuilder: (_, i) {
+            final url = widget.images[i];
+            return InteractiveViewer(
+              boundaryMargin: const EdgeInsets.all(80),
+              minScale: 0.5,
+              maxScale: 4,
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.broken_image, color: Colors.white, size: 72),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/* ============================== Info Column ============================== */
+
+class _InfoColumn extends StatelessWidget {
+  const _InfoColumn({
+    required this.p,
+    required this.seller,
+    required this.details,
+    required this.keywords,
+    required this.similar,
+    required this.currentUserId,
+  });
+
+  final fp.Product p;
+  final _SellerVM seller;
   final Map<String, dynamic> details;
+  final List<String> keywords;
+  final List<fp.Product> similar;
+  final String currentUserId;
 
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context);
-    final schema = _Schema.forCategory(categoryId);
-    final rows = <Widget>[];
-
-    for (final f in schema) {
-      final v = details[f.key];
-      if (v == null) continue;
-
-      Widget w;
-      switch (f.type) {
-        case _FieldType.toggle:
-          w = Text(v == true ? 'بله' : 'خیر');
-          break;
-        case _FieldType.multiselect:
-          final list = List<String>.from(v);
-          w = Wrap(spacing: 6, runSpacing: -6, children: list.map((e) => Chip(label: Text(e))).toList());
-          break;
-        case _FieldType.repeater:
-          final list = List<String>.from(v);
-          w = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: list
-                .map((e) => Row(children: [
-                      const Icon(Icons.check_circle_outline, size: 16),
-                      const SizedBox(width: 6),
-                      Expanded(child: Text(e)),
-                    ]))
-                .toList(),
-          );
-          break;
-        default:
-          final text = (f.unit != null && v is num) ? '$v ${f.unit}' : v.toString();
-          w = Text(text);
-      }
-
-      rows.add(Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 120,
-              child: Text(f.label,
-                  style: th.textTheme.bodyMedium?.copyWith(
-                    color: th.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  )),
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: w),
-          ],
-        ),
-      ));
-    }
-
-    if (rows.isEmpty) return const SizedBox.shrink();
+    final cs = th.colorScheme;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('جزئیات', style: th.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        ...rows,
+        // عنوان + قیمت
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                p.title,
+                style: th.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _PriceChip(price: p.price, currency: p.currency),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // کلمات کلیدی
+        if (keywords.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: keywords
+                .map((k) => Chip(
+                      label: Text(k),
+                      backgroundColor: cs.surfaceVariant,
+                    ))
+                .toList(),
+          ),
+
+        const SizedBox(height: 12),
+
+        // توضیحات
+        Card(
+          elevation: 0,
+          color: cs.surface,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              (p.description ?? '').trim().isNotEmpty
+                  ? p.description!.trim()
+                  : 'توضیحات محصول ثبت نشده است.',
+              style: th.textTheme.bodyMedium?.copyWith(
+                color: (p.description ?? '').trim().isNotEmpty
+                    ? null
+                    : cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // جزئیات
+        if (details.isNotEmpty)
+          Card(
+            elevation: 0,
+            color: cs.surface,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('جزئیات', style: th.textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  ...details.entries.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 120,
+                            child: Text(
+                              e.key,
+                              style: th.textTheme.bodyMedium?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('${e.value}',
+                                style: th.textTheme.bodyMedium),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 12),
+
+        // فروشنده + چت
+        Card(
+          elevation: 0,
+          color: cs.surface,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              radius: 22,
+              backgroundColor: cs.surfaceVariant,
+              backgroundImage: (seller.avatarUrl?.trim().isNotEmpty ?? false)
+                  ? NetworkImage(seller.avatarUrl!)
+                  : null,
+              child: (seller.avatarUrl?.trim().isEmpty ?? true)
+                  ? Text(
+                      seller.name.isNotEmpty
+                          ? seller.name.characters.first.toUpperCase()
+                          : '؟',
+                    )
+                  : null,
+            ),
+            title: Text(seller.name),
+            subtitle: Text('کد فروشنده: ${seller.id}',
+                style:
+                    th.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            trailing: FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ChatRoomPage(
+                    chatId: seller.id,
+                    currentUserId: currentUserId,
+                    peerTitle: seller.name,
+                  ),
+                ));
+              },
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('چت'),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        if (similar.isNotEmpty) ...[
+          Text('محصولات مشابه', style: th.textTheme.titleMedium),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 230,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: similar.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, i) {
+                final sp = similar[i];
+                final img = ((sp.images ?? const <String>[])
+                            .map((e) => e.trim())
+                            .where((e) => e.isNotEmpty)
+                            .toList())
+                        .isNotEmpty
+                    ? (sp.images ?? const <String>[])
+                        .firstWhere((e) => e.trim().isNotEmpty)
+                    : ((sp.imageUrl ?? '').trim().isNotEmpty
+                        ? sp.imageUrl!.trim()
+                        : 'https://picsum.photos/seed/${sp.id}/600/600');
+
+                return SizedBox(
+                  width: 160,
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => ProductViewPage(
+                            p: sp,
+                            currentUserId: currentUserId,
+                          ),
+                        ));
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          AspectRatio(
+                            aspectRatio: 1,
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              child: Image.network(
+                                img,
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.broken_image),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              sp.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
-enum _FieldType { text, number, integer, select, multiselect, toggle, repeater }
+/* ============================== Widgets ============================== */
 
-class _Field {
-  final String key;
-  final String label;
-  final _FieldType type;
-  final String? unit;
-  const _Field(this.key, this.label, this.type, {this.unit});
+class _PriceChip extends StatelessWidget {
+  const _PriceChip({required this.price, required this.currency});
+  final double price;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        _formatPrice(price, currency),
+        style: TextStyle(
+          color: cs.onPrimaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  String _formatPrice(double v, String curr) {
+    final s = v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2);
+    return '$s $curr';
+  }
 }
 
-class _Schema {
-  static List<_Field> house = [
-    _Field('location', 'موقعیت', _FieldType.text),
-    _Field('area_m2', 'متراژ', _FieldType.number, unit: 'm²'),
-    _Field('rooms', 'تعداد اتاق', _FieldType.integer),
-    _Field('bedrooms', 'اتاق خواب', _FieldType.integer),
-    _Field('bathrooms', 'حمام/توالت', _FieldType.integer),
-    _Field('floor', 'طبقه', _FieldType.integer),
-    _Field('year_built', 'سال ساخت', _FieldType.integer),
-    _Field('furnished', 'مبله', _FieldType.toggle),
-    _Field('parking', 'پارکینگ', _FieldType.toggle),
-    _Field('amenities', 'امکانات', _FieldType.multiselect),
-    _Field('features', 'ویژگی‌های دیگر', _FieldType.repeater),
-  ];
+class _BottomActionBar extends StatelessWidget {
+  const _BottomActionBar({
+    required this.price,
+    required this.currency,
+    required this.onChat,
+    required this.onBuy,
+  });
 
-  static List<_Field> car = [
-    _Field('brand', 'برند', _FieldType.select),
-    _Field('model', 'مدل', _FieldType.text),
-    _Field('year', 'سال', _FieldType.integer),
-    _Field('km', 'کارکرد', _FieldType.number, unit: 'km'),
-    _Field('fuel', 'سوخت', _FieldType.select),
-    _Field('transmission', 'گیربکس', _FieldType.select),
-    _Field('color', 'رنگ', _FieldType.text),
-    _Field('owners', 'تعداد مالک', _FieldType.integer),
-    _Field('accident_free', 'بی‌تصادف', _FieldType.toggle),
-    _Field('extras', 'آپشن‌ها', _FieldType.multiselect),
-  ];
+  final double price;
+  final String currency;
+  final VoidCallback onChat;
+  final VoidCallback onBuy;
 
-  static List<_Field> phone = [
-    _Field('brand', 'برند', _FieldType.select),
-    _Field('model', 'مدل', _FieldType.text),
-    _Field('storage', 'حافظه', _FieldType.select),
-    _Field('ram', 'RAM', _FieldType.select),
-    _Field('condition', 'وضعیت', _FieldType.select),
-    _Field('battery_health', 'سلامت باتری', _FieldType.integer, unit: '%'),
-    _Field('dual_sim', 'دو سیم‌کارت', _FieldType.toggle),
-    _Field('accessories', 'لوازم همراه', _FieldType.multiselect),
-    _Field('notes', 'یادداشت‌ها', _FieldType.repeater),
-  ];
-
-  static List<_Field> job = [
-    _Field('job_title', 'عنوان شغل', _FieldType.text),
-    _Field('employment_type', 'نوع همکاری', _FieldType.select),
-    _Field('location', 'محل کار', _FieldType.text),
-    _Field('remote', 'دورکار', _FieldType.toggle),
-    _Field('salary_min', 'حداقل حقوق', _FieldType.number, unit: 'CHF'),
-    _Field('salary_max', 'حداکثر حقوق', _FieldType.number, unit: 'CHF'),
-    _Field('requirements', 'شرایط/مهارت‌ها', _FieldType.repeater),
-  ];
-
-  static List<_Field> forCategory(String id) {
-    switch (id) {
-      case 'house':
-        return house;
-      case 'car':
-        return car;
-      case 'phone':
-        return phone;
-      case 'job':
-        return job;
-      default:
-        return house;
-    }
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          border: Border(top: BorderSide(color: cs.outlineVariant)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _formatPrice(price, currency),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: onChat,
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('چت'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: onBuy,
+              icon: const Icon(Icons.shopping_bag_outlined),
+              label: const Text('خرید'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+
+  String _formatPrice(double v, String curr) {
+    final s = v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2);
+    return '$s $curr';
+  }
+}
+
+/* ============================== VMs ============================== */
+
+class _SellerVM {
+  final String id;
+  final String name;
+  final String? avatarUrl;
+  _SellerVM({required this.id, required this.name, this.avatarUrl});
 }
