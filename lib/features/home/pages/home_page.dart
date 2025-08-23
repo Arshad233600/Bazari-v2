@@ -29,7 +29,7 @@ import 'package:bazari_8656/common/widgets/horizontal_chips.dart';
 import 'package:bazari_8656/features/chat/widgets/chat_badge_action.dart';
 
 import '../../product/pages/product_view_page.dart' as pv;
-// 👇 اضافه شد: مدل Product نسخهٔ صفحهٔ محصول
+// 🔁 مدل Product نسخهٔ فیچر
 import 'package:bazari_8656/features/product/models/product.dart' as fp;
 
 class HomePage extends StatefulWidget {
@@ -592,7 +592,7 @@ class _HomePageState extends State<HomePage>
                     (c, i) {
                       final p = _items[i];
 
-                      // 👇 تبدیل مدل دیتامدل → مدل صفحهٔ محصول
+                      // تبدیل مدل دیتامدل → مدل صفحهٔ محصول (با images)
                       final vp = _toFeatureProduct(p);
 
                       return GestureDetector(
@@ -699,7 +699,6 @@ class _HomePageState extends State<HomePage>
       bottomNavigationBar: _ProBottomBar(
         onChat: () {
           // اگر ChatBadgeAction ناوبری داخلی دارد، نیازی به این نیست.
-          // اینجا می‌تونی ناوبری سفارشی‌ات را قرار دهی.
         },
         onDashboard: () async {
           final ok = await AuthService.instance.ensureSignedIn(context);
@@ -711,15 +710,15 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ---------- Helpers (جدید): گرفتن UID و تبدیل مدل ----------
+  // ---------- Helpers: گرفتن UID و تبدیل مدل ----------
 
-  /// سعی می‌کند userId را از AuthService با مسیرهای مختلف بخواند، در غیر این صورت 'guest'
+  /// UID کاربر را از مسیرهای ممکن در AuthService می‌خواند؛ در غیر این‌صورت 'guest'
   String _resolveCurrentUserId() {
     try {
       final a = AuthService.instance as dynamic;
-      try { final v = a.currentUserId; if (v is String && v.isNotEmpty) return v; } catch (_) {}
-      try { final v = a.userId;        if (v is String && v.isNotEmpty) return v; } catch (_) {}
-      try { final v = a.uid;           if (v is String && v.isNotEmpty) return v; } catch (_) {}
+      try { final v = a.currentUserId;    if (v is String && v.isNotEmpty) return v; } catch (_) {}
+      try { final v = a.userId;           if (v is String && v.isNotEmpty) return v; } catch (_) {}
+      try { final v = a.uid;              if (v is String && v.isNotEmpty) return v; } catch (_) {}
       try { final v = a.currentUser?.uid; if (v is String && v.isNotEmpty) return v; } catch (_) {}
     } catch (_) {}
     return 'guest';
@@ -727,18 +726,20 @@ class _HomePageState extends State<HomePage>
 
   /// مبدل Product (data/models.dart) → Product (features/product/models/product.dart)
   fp.Product _toFeatureProduct(Product p) {
+    final img = (p.imageUrl ?? '').toString().trim();
     return fp.Product(
       id: p.id,
       title: p.title,
       price: p.price,
       currency: p.currency,
-      imageUrl: p.imageUrl,        // اگر مدل صفحه چندعکسی باشد، خودش هندل می‌کند/یا بعداً ارتقا می‌دهیم
+      // ✅ مدل فیچر به‌جای imageUrl، فهرست تصاویر می‌گیرد
+      images: img.isEmpty ? const <String>[] : <String>[img],
       createdAt: p.createdAt,
       sellerId: p.sellerId,
       sellerName: p.sellerName,
       sellerAvatarUrl: p.sellerAvatarUrl,
       categoryId: p.categoryId,
-      // سایر فیلدها اگر در مدل صفحه اجباری نیستند، نیاز نیست پاس دهی.
+      // اگر فیلدهای اجباری دیگری دارید، همین‌جا نگاشت‌شان کنید.
     );
   }
 }
@@ -758,7 +759,6 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   double get minExtent => minHeight;
-
   @override
   double get maxExtent => maxHeight;
 
