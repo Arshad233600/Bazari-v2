@@ -918,3 +918,46 @@ class _ProBottomBar extends StatelessWidget {
 }
 
 void _noop() {}
+
+
+
+
+/// مبدل Product (data/models.dart) → Product (features/product/models/product.dart)
+fp.Product _toFeatureProduct(Product p) {
+  final img = (p.imageUrl ?? '').toString().trim();
+
+  return fp.Product(
+    id: p.id,
+    title: p.title,
+    price: p.price,
+    currency: p.currency,
+
+    // 👇 تصاویر (کاور + یک تصویر فرضی برای گالری)
+    images: img.isEmpty
+        ? <String>['https://picsum.photos/seed/${p.id}/800/600']
+        : <String>[img],
+
+    createdAt: p.createdAt,
+
+    // 👇 فروشنده
+    seller: fp.Seller(
+      id: p.sellerId ?? 'unknown',
+      name: p.sellerName ?? 'فروشنده',
+      avatarUrl: p.sellerAvatarUrl ??
+          'https://i.pravatar.cc/150?u=${p.sellerId ?? p.id}',
+    ),
+
+    categoryId: p.categoryId ?? 'misc',
+
+    // 👇 مقادیر پیش‌فرض برای بخش توضیحات و جزئیات
+    description: 'توضیحات محصول هنوز وارد نشده است.',
+    keywords: <String>['sample', 'demo', 'test'],
+    details: <String, dynamic>{
+      'رنگ': 'نامشخص',
+      'اندازه': 'نامشخص',
+    },
+
+    // 👇 مشابه‌ها (فعلا خالی می‌گذاریم)
+    similar: const <fp.Product>[],
+  );
+}
